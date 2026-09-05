@@ -271,4 +271,62 @@ router.put('/:id', checkRole(ROLES.ADMIN), async (req, res) => {
   }
 });
 
+// DELETE /api/users/:id - Delete a user (ADMIN only)
+router.delete('/:id', checkRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Guard against deleting static admin account or self
+    const targetUser = await query('SELECT * FROM users WHERE id = $1', [id]);
+    if (targetUser.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const u = targetUser.rows[0];
+    if (u.id === 'usr-admin' || u.email.toLowerCase() === 'admin@peoplepay360.com') {
+      return res.status(400).json({ success: false, message: 'Cannot delete the primary System Administrator account' });
+    }
+
+    if (req.user.id === id) {
+      return res.status(400).json({ success: false, message: 'You cannot delete your own active administrator account' });
+    }
+
+    // Unlink employee profile if attached
+    await query('UPDATE employees SET user_id = NULL WHERE user_id = $1', [id]);
+    // Delete user roles
+    await query('DELETE FROM user_roles WHERE user_id = $1', [id]);
+    // Delete user
+    await query('DELETE FROM users WHERE id = $1', [id]);
+
+    await logAudit(req.user.id, 'DELETE_USER', 'users', id, { email: u.email, name: `${u.first_name} ${u.last_name}` }, req);
+
+    res.json({ success: true, message: `User "${u.first_name} ${u.last_name}" (${u.email}) deleted successfully` });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete user' });
+  }
+});
+
+// PUT /api/users/roles/:id - Update Role details & description (ADMIN only)
+router.put('/roles/:id', checkRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { description, name } = req.body;
+
+    await query(
+      `UPDATE roles SET
+        description = COALESCE($1, description),
+        name = COALESCE($2, name)
+       WHERE id = $3`,
+      [description || null, name || null, id]
+    );
+
+    await logAudit(req.user.id, 'UPDATE_ROLE', 'roles', id, { description, name }, req);
+    res.json({ success: true, message: 'Role configuration updated successfully' });
+  } catch (err) {
+    console.error('Update role error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update role' });
+  }
+});
+
 module.exports = router;

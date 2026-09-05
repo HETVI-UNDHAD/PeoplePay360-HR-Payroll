@@ -41,6 +41,8 @@ export const api = {
   getRoles: () => request('/users/roles'),
   createUser: (userData) => request('/users', { method: 'POST', body: JSON.stringify(userData) }),
   updateUser: (id, userData) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(userData) }),
+  deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  updateRole: (id, data) => request(`/users/roles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Departments & Designations
   getDepartments: () => request('/departments'),
