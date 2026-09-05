@@ -11,11 +11,58 @@ router.use(authenticate);
 // GET /api/timeoff/types - List all time off types
 router.get('/types', async (req, res) => {
   try {
-    const types = await query('SELECT * FROM time_off_types WHERE is_active = TRUE ORDER BY name ASC');
+    const types = await query('SELECT * FROM time_off_types ORDER BY name ASC');
     res.json({ success: true, types: types.rows });
   } catch (err) {
     console.error('Fetch timeoff types error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch time-off types' });
+  }
+});
+
+// POST /api/timeoff/types - Create time off type (HR_MANAGER, ADMIN)
+router.post('/types', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+  try {
+    const { name, code, is_allocation_required, is_approval_required, is_paid, default_days_per_year, color_code } = req.body;
+    if (!name || !code) return res.status(400).json({ success: false, message: 'Name and code are required' });
+
+    const existing = await query('SELECT id FROM time_off_types WHERE UPPER(code) = UPPER($1)', [code.trim()]);
+    if (existing.rows.length > 0) return res.status(400).json({ success: false, message: 'A leave type with this code already exists' });
+
+    const id = uuidv4();
+    await query(
+      `INSERT INTO time_off_types (id, company_id, name, code, is_allocation_required, is_approval_required, is_paid, default_days_per_year, color_code, is_active)
+       VALUES ($1, 'comp-001', $2, $3, $4, $5, $6, $7, $8, TRUE)`,
+      [id, name.trim(), code.trim().toUpperCase(),
+       is_allocation_required !== false, is_approval_required !== false,
+       is_paid !== false, parseFloat(default_days_per_year) || 0,
+       color_code || '#3B82F6']
+    );
+
+    await logAudit(req.user.id, 'CREATE_TIMEOFF_TYPE', 'time_off_types', id, { name, code }, req);
+    res.status(201).json({ success: true, message: 'Leave type created successfully', id });
+  } catch (err) {
+    console.error('Create timeoff type error:', err);
+    res.status(500).json({ success: false, message: 'Failed to create leave type' });
+  }
+});
+
+// PUT /api/timeoff/types/:id - Update time off type (HR_MANAGER, ADMIN)
+router.put('/types/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, is_allocation_required, is_approval_required, is_paid, default_days_per_year, color_code, is_active } = req.body;
+
+    await query(
+      `UPDATE time_off_types SET name=$1, is_allocation_required=$2, is_approval_required=$3, is_paid=$4, default_days_per_year=$5, color_code=$6, is_active=$7 WHERE id=$8`,
+      [name, is_allocation_required !== false, is_approval_required !== false, is_paid !== false,
+       parseFloat(default_days_per_year) || 0, color_code || '#3B82F6', is_active !== false, id]
+    );
+
+    await logAudit(req.user.id, 'UPDATE_TIMEOFF_TYPE', 'time_off_types', id, { name }, req);
+    res.json({ success: true, message: 'Leave type updated successfully' });
+  } catch (err) {
+    console.error('Update timeoff type error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update leave type' });
   }
 });
 

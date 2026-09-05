@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import {
   Receipt,
   Download,
@@ -20,6 +22,7 @@ export function PayslipPage({ preSelectedPayslipId }) {
   const { user, isEmployee, showToast } = useAuth();
   const [payslips, setPayslips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const payslipRef = useRef(null);
 
   // Selected Payslip for View/Print
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -66,8 +69,23 @@ export function PayslipPage({ preSelectedPayslipId }) {
     }
   }, [preSelectedPayslipId]);
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = () => window.print();
+
+  const handleDownloadPDF = async () => {
+    if (!payslipRef.current) return;
+    try {
+      showToast('Generating PDF...', 'info');
+      const canvas = await html2canvas(payslipRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${selectedPayslipData?.payslip?.payslip_number || 'payslip'}.pdf`);
+      showToast('PDF downloaded successfully!', 'success');
+    } catch (err) {
+      showToast('PDF generation failed', 'error');
+    }
   };
 
   const filteredPayslips = payslips.filter(ps =>
@@ -177,16 +195,26 @@ export function PayslipPage({ preSelectedPayslipId }) {
             {/* Action Bar inside modal (No-print) */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-200 no-print">
               <span className="text-xs text-slate-500 font-medium">Payslip generated via PeoplePay360 Salary Engine</span>
-              <button
-                onClick={handlePrint}
-                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition-all flex items-center gap-2"
-              >
-                <Printer className="w-4 h-4" />
-                Print / Save as PDF
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadPDF}
+                  className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow-md transition-all flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition-all flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </button>
+              </div>
             </div>
 
-            {/* Document Header */}
+            {/* Printable content */}
+            <div ref={payslipRef}>
             <div className="flex items-start justify-between pb-6 border-b-2 border-slate-900">
               <div>
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">{selectedPayslipData.company.name}</h2>
@@ -288,7 +316,7 @@ export function PayslipPage({ preSelectedPayslipId }) {
                 <p className="text-[10px] text-slate-400 mt-0.5">{selectedPayslipData.payslip.employee_name}</p>
               </div>
             </div>
-
+            </div>
           </div>
         )}
       </Modal>

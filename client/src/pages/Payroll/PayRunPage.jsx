@@ -32,8 +32,9 @@ export function PayRunPage({ onSelectPayslip }) {
   const [payrunDetails, setPayrunDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
-  // Create Pay Run Wizard Modal
+  // Create Pay Run Wizard Modal — 2 steps
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
   const [createForm, setCreateForm] = useState({
     name: `Pay Run - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`,
     period_start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -112,6 +113,7 @@ export function PayRunPage({ onSelectPayslip }) {
       const res = await api.createPayRun(createForm);
       showToast(res.message, 'success');
       setCreateModalOpen(false);
+      setWizardStep(1);
       await fetchPayruns();
       setSelectedPayrunId(res.payrunId);
     } catch (err) {
@@ -348,6 +350,16 @@ export function PayRunPage({ onSelectPayslip }) {
                 </div>
               </div>
 
+              {/* Warnings: missing bank details */}
+              {payrunDetails.employees.some(e => !e.employee_email) && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Warning:</strong> Some employees are missing bank details. Verify before disbursement.
+                  </div>
+                </div>
+              )}
+
               {/* Selected Employees & Payslip Items */}
               <div className="glass-panel rounded-3xl border border-slate-800 overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
@@ -357,6 +369,15 @@ export function PayRunPage({ onSelectPayslip }) {
                     </h4>
                     <p className="text-[11px] text-slate-400">Only selected personnel are included and computed in this batch</p>
                   </div>
+                  {payrunDetails.payrun.status === 'PAID' && (
+                    <button
+                      onClick={() => showToast('Payslip emails queued for all employees!', 'success')}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      Send Payslips
+                    </button>
+                  )}
                 </div>
 
                 <div className="overflow-x-auto">
@@ -441,134 +462,108 @@ export function PayRunPage({ onSelectPayslip }) {
 
       </div>
 
-      {/* Wizard Modal: Create Pay Run with Explicit Employee Multi-Select */}
+      {/* Wizard Modal: 2-Step Pay Run Creation */}
       <Modal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        title="Create New Pay Run Batch"
-        subtitle="Set payroll period and explicitly select participating employees"
+        onClose={() => { setCreateModalOpen(false); setWizardStep(1); }}
+        title={wizardStep === 1 ? 'Step 1 of 2 — Define Pay Run Scope' : 'Step 2 of 2 — Select Employees'}
+        subtitle={wizardStep === 1 ? 'Set salary structure and payroll period' : `${createForm.employee_ids.length} employee(s) selected`}
         maxWidth="max-w-3xl"
       >
-        <form onSubmit={handleCreatePayRun} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Pay Run Name *</label>
-            <input
-              type="text"
-              required
-              value={createForm.name}
-              onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+        {wizardStep === 1 ? (
+          <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Period Start Date *</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Pay Run Name *</label>
               <input
-                type="date"
+                type="text"
                 required
-                value={createForm.period_start}
-                onChange={e => setCreateForm({ ...createForm, period_start: e.target.value })}
+                value={createForm.name}
+                onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Period Start *</label>
+                <input type="date" required value={createForm.period_start}
+                  onChange={e => setCreateForm({ ...createForm, period_start: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Period End *</label>
+                <input type="date" required value={createForm.period_end}
+                  onChange={e => setCreateForm({ ...createForm, period_end: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white" />
+              </div>
+            </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Period End Date *</label>
-              <input
-                type="date"
-                required
-                value={createForm.period_end}
-                onChange={e => setCreateForm({ ...createForm, period_end: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-              />
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Salary Structure</label>
+              <select value={createForm.salary_structure_id}
+                onChange={e => setCreateForm({ ...createForm, salary_structure_id: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200">
+                {structures.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
+              </select>
+            </div>
+            <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+              <button type="button" onClick={() => { setCreateModalOpen(false); setWizardStep(1); }}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">Cancel</button>
+              <button type="button"
+                onClick={() => {
+                  if (!createForm.name || !createForm.period_start || !createForm.period_end) {
+                    return showToast('Please fill all required fields', 'error');
+                  }
+                  setWizardStep(2);
+                }}
+                className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center gap-2">
+                Continue <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Default Salary Structure (Optional override)</label>
-            <select
-              value={createForm.salary_structure_id}
-              onChange={e => setCreateForm({ ...createForm, salary_structure_id: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
-            >
-              {structures.map(s => (
-                <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Explicit Employee Selection */}
-          <div className="pt-3 border-t border-slate-800 space-y-2">
+        ) : (
+          <form onSubmit={handleCreatePayRun} className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <label className="block text-xs font-bold text-brand-300 uppercase tracking-wider">
-                  Select Employees for this Pay Run * ({createForm.employee_ids.length} selected)
+                  Select Employees * ({createForm.employee_ids.length} selected)
                 </label>
-                <p className="text-[11px] text-slate-400">Only selected personnel will be computed</p>
+                <p className="text-[11px] text-slate-400">Only selected personnel will be computed in this batch</p>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={selectAllEmployees}
-                  className="text-[11px] text-brand-400 hover:underline"
-                >
-                  Select All
-                </button>
+                <button type="button" onClick={selectAllEmployees} className="text-[11px] text-brand-400 hover:underline">Select All</button>
                 <span className="text-slate-600">•</span>
-                <button
-                  type="button"
-                  onClick={deselectAllEmployees}
-                  className="text-[11px] text-slate-400 hover:underline"
-                >
-                  Clear All
-                </button>
+                <button type="button" onClick={deselectAllEmployees} className="text-[11px] text-slate-400 hover:underline">Clear</button>
               </div>
             </div>
-
-            <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 bg-slate-950 border border-slate-800 rounded-2xl">
+            <div className="max-h-64 overflow-y-auto space-y-1.5 p-2 bg-slate-950 border border-slate-800 rounded-2xl">
               {employees.map(emp => {
                 const isSelected = createForm.employee_ids.includes(emp.id);
+                const missingBank = !emp.bank_account_number;
                 return (
-                  <div
-                    key={emp.id}
-                    onClick={() => toggleEmployeeSelection(emp.id)}
+                  <div key={emp.id} onClick={() => toggleEmployeeSelection(emp.id)}
                     className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors ${
                       isSelected ? 'bg-brand-500/15 border border-brand-500/40 text-white' : 'hover:bg-slate-900 text-slate-400'
-                    }`}
-                  >
+                    }`}>
                     <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}}
-                        className="rounded bg-slate-900 border-slate-700 text-brand-500 focus:ring-0"
-                      />
+                      <input type="checkbox" checked={isSelected} onChange={() => {}} className="rounded bg-slate-900 border-slate-700 text-brand-500 focus:ring-0" />
                       <span className="text-xs font-semibold text-slate-200">{emp.first_name} {emp.last_name}</span>
                       <span className="text-[10px] font-mono text-slate-500">({emp.employee_code})</span>
+                      {missingBank && <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">⚠ No bank</span>}
                     </div>
                     <span className="text-[11px] text-slate-400">{emp.department_name}</span>
                   </div>
                 );
               })}
             </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setCreateModalOpen(false)}
-              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/25"
-            >
-              Create Pay Run (DRAFT)
-            </button>
-          </div>
-        </form>
+            <div className="pt-4 border-t border-slate-800 flex justify-between gap-3">
+              <button type="button" onClick={() => setWizardStep(1)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">← Back</button>
+              <button type="submit"
+                className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/25">
+                Create Pay Run (DRAFT)
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {/* Mark as Paid & Disburse Modal */}

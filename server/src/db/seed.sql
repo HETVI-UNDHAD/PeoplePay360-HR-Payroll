@@ -1,7 +1,7 @@
 -- ==============================================================================
--- PeoplePay360 - Clean Dynamic Seed Data
--- Only Master Configuration & Admin User (Ready for 100% Dynamic User Input)
--- Default Admin: admin@peoplepay360.com / password123
+-- PeoplePay360 - Minimal Static Seed
+-- ONLY: Admin user (static) + master config (roles, company, leave types, schedule, salary structure)
+-- ALL other data (employees, contracts, payruns, etc.) is 100% dynamic via UI
 -- ==============================================================================
 
 -- 1. COMPANY MASTER
@@ -18,7 +18,7 @@ INSERT INTO roles (id, name, code, description) VALUES
 ('role-employee', 'Employee', 'EMPLOYEE', 'Self-service portal: view own profile, contract, punch attendance, apply time-off, view/download payslips')
 ON CONFLICT (id) DO NOTHING;
 
--- 3. SYSTEM ADMIN USER (password: password123)
+-- 3. STATIC ADMIN USER ONLY (password: password123)
 INSERT INTO users (id, email, password_hash, first_name, last_name, phone, is_active) VALUES
 ('usr-admin', 'admin@peoplepay360.com', '$2a$10$sTnBq5myc/cs.WqgCwukleufj/UfywI6MdaBufbMPwkso/Wgarjoa', 'Alexander', 'Wright', '+1 (555) 100-0001', TRUE)
 ON CONFLICT (id) DO NOTHING;
@@ -28,7 +28,7 @@ INSERT INTO user_roles (id, user_id, role_id) VALUES
 ('ur-1', 'usr-admin', 'role-admin')
 ON CONFLICT (id) DO NOTHING;
 
--- 5. TIME-OFF TYPES MASTER
+-- 5. TIME-OFF TYPES MASTER (configurable via UI)
 INSERT INTO time_off_types (id, company_id, name, code, is_allocation_required, is_approval_required, is_paid, default_days_per_year, color_code, is_active) VALUES
 ('tot-paid', 'comp-001', 'Paid Time Off / Annual Leave', 'PTO', TRUE, TRUE, TRUE, 15.0, '#3B82F6', TRUE),
 ('tot-sick', 'comp-001', 'Sick Leave', 'SICK', TRUE, TRUE, TRUE, 10.0, '#10B981', TRUE),
@@ -36,7 +36,7 @@ INSERT INTO time_off_types (id, company_id, name, code, is_allocation_required, 
 ('tot-unpaid', 'comp-001', 'Unpaid Leave', 'UNPAID', FALSE, TRUE, FALSE, 0.0, '#EF4444', TRUE)
 ON CONFLICT (id) DO NOTHING;
 
--- 6. DEFAULT WORKING SCHEDULE
+-- 6. DEFAULT WORKING SCHEDULE (configurable via UI)
 INSERT INTO working_schedules (id, company_id, name, timezone, weekly_working_hours, working_days, start_time, end_time, break_hours, is_active) VALUES
 ('sched-std', 'comp-001', 'Standard Full-Time (40h/week)', 'America/Los_Angeles', 40.00, 'Monday,Tuesday,Wednesday,Thursday,Friday', '09:00:00', '18:00:00', 1.00, TRUE)
 ON CONFLICT (id) DO NOTHING;
@@ -52,12 +52,12 @@ INSERT INTO working_schedule_days (id, schedule_id, day_of_week, is_working_day,
 ('wsd-7', 'sched-std', 'Sunday', FALSE, '00:00:00', '00:00:00', 0.00, 0.00)
 ON CONFLICT (id) DO NOTHING;
 
--- 8. INITIAL SALARY STRUCTURE TEMPLATE
+-- 8. DEFAULT SALARY STRUCTURE (configurable via UI)
 INSERT INTO salary_structures (id, name, code, type, description, is_active) VALUES
 ('struct-reg', 'Standard Professional Salary Structure', 'REG_SAL_2026', 'REGULAR', 'Standard monthly salary structure with Basic, Allowances, PF, and Tax rules', TRUE)
 ON CONFLICT (id) DO NOTHING;
 
--- 9. INITIAL SALARY RULES
+-- 9. DEFAULT SALARY RULES
 INSERT INTO salary_rules (id, salary_structure_id, name, code, sequence, category, computation_type, fixed_amount, percentage, base_code, formula, is_active) VALUES
 ('rule-basic', 'struct-reg', 'Basic Salary', 'BASIC', 10, 'BASIC', 'PERCENTAGE', 0.00, 50.00, 'WAGE', NULL, TRUE),
 ('rule-hra', 'struct-reg', 'House Rent Allowance (HRA)', 'HRA', 20, 'ALLOWANCE', 'PERCENTAGE', 0.00, 20.00, 'BASIC', NULL, TRUE),
@@ -66,7 +66,24 @@ INSERT INTO salary_rules (id, salary_structure_id, name, code, sequence, categor
 ('rule-tax', 'struct-reg', 'Income Tax Withholding', 'TAX', 60, 'DEDUCTION', 'FORMULA', 0.00, 0.00, NULL, '(BASIC + HRA) * 0.08', TRUE)
 ON CONFLICT (id) DO NOTHING;
 
--- 10. SYSTEM AUDIT LOG
-INSERT INTO audit_logs (id, user_id, action, entity, entity_id, details, ip_address) VALUES
-('log-1', 'usr-admin', 'SYSTEM_INITIALIZATION', 'system', 'sys-001', 'PeoplePay360 System configured for dynamic production data', '127.0.0.1')
+-- 10. FOUNDATIONAL DEPARTMENTS (MASTER)
+INSERT INTO departments (id, company_id, name, code, is_active) VALUES
+('dept-eng', 'comp-001', 'Engineering', 'ENG', TRUE),
+('dept-hr', 'comp-001', 'Human Resources', 'HR', TRUE),
+('dept-fin', 'comp-001', 'Finance & Payroll', 'FIN', TRUE),
+('dept-ops', 'comp-001', 'Operations', 'OPS', TRUE)
 ON CONFLICT (id) DO NOTHING;
+
+-- 11. FOUNDATIONAL DESIGNATIONS (MASTER)
+INSERT INTO designations (id, department_id, name, code, description, is_active) VALUES
+('desig-eng-1', 'dept-eng', 'Software Engineer', 'SWE', 'Software development and systems engineering', TRUE),
+('desig-hr-1', 'dept-hr', 'HR Specialist', 'HRS', 'Human resources and employee relations', TRUE),
+('desig-fin-1', 'dept-fin', 'Payroll Specialist', 'PAY', 'Compensation, benefits, and payroll management', TRUE),
+('desig-ops-1', 'dept-ops', 'Operations Manager', 'OPM', 'Daily operations and facilities oversight', TRUE)
+ON CONFLICT (id) DO NOTHING;
+
+-- 12. SYSTEM AUDIT LOG
+INSERT INTO audit_logs (id, user_id, action, entity, entity_id, details, ip_address) VALUES
+('log-1', 'usr-admin', 'SYSTEM_INITIALIZATION', 'system', 'sys-001', 'PeoplePay360 initialized. Admin is the only static user. All other data is dynamic.', '127.0.0.1')
+ON CONFLICT (id) DO NOTHING;
+

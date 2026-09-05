@@ -81,10 +81,10 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/demo-switch - Quick Role Switcher for instant Hackathon testing across all 5 roles
+// POST /api/auth/demo-switch - Quick Role Switcher
 router.post('/demo-switch', async (req, res) => {
   try {
-    const { roleCode } = req.body; // 'ADMIN', 'HR_MANAGER', 'PAYROLL_ADMIN', 'PAYROLL_USER', 'EMPLOYEE'
+    const { roleCode } = req.body;
 
     const targetUser = await query(
       `SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.is_active,
@@ -94,23 +94,25 @@ router.post('/demo-switch', async (req, res) => {
        JOIN user_roles ur ON ur.user_id = u.id
        JOIN roles r ON r.id = ur.role_id
        LEFT JOIN employees e ON e.user_id = u.id
-       WHERE r.code = $1
+       WHERE r.code = $1 AND u.is_active = TRUE
        LIMIT 1`,
       [roleCode]
     );
 
     if (targetUser.rows.length === 0) {
-      return res.status(404).json({ success: false, message: `No demo account found for role ${roleCode}` });
+      return res.status(404).json({
+        success: false,
+        message: `No active user found with role "${roleCode}". Please create a user with this role via Admin → Users & Roles first.`
+      });
     }
 
     const user = targetUser.rows[0];
     const token = generateToken(user);
-
     await logAudit(user.id, 'DEMO_ROLE_SWITCH', 'users', user.id, { switchedToRole: roleCode }, req);
 
     res.json({
       success: true,
-      message: `Switched demo role to ${user.role_name}`,
+      message: `Switched to ${user.role_name} — ${user.first_name} ${user.last_name}`,
       token,
       user: {
         id: user.id,

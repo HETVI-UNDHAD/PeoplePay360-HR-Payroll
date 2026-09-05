@@ -3,6 +3,7 @@
 -- Database Schema (PostgreSQL DDL)
 -- ==============================================================================
 
+
 -- 1. COMPANIES TABLE
 CREATE TABLE IF NOT EXISTS companies (
     id VARCHAR(36) PRIMARY KEY,
