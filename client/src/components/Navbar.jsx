@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../services/api';
+import { Modal } from './Modal';
 import {
   ShieldCheck,
   UserCheck,
@@ -22,6 +23,9 @@ export function Navbar({ onOpenPunchModal }) {
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [todayAttendance, setTodayAttendance] = useState(null);
   const [punchLoading, setPunchLoading] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileDetails, setProfileDetails] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   // Load today's attendance status
   const fetchTodayStatus = async () => {
@@ -58,6 +62,21 @@ export function Navbar({ onOpenPunchModal }) {
       showToast(err.message, 'error');
     } finally {
       setPunchLoading(false);
+    }
+  };
+
+  const handleOpenProfile = async () => {
+    setProfileOpen(true);
+    if (!user?.employeeId || profileDetails) return;
+
+    try {
+      setProfileLoading(true);
+      const res = await api.getEmployeeDetails(user.employeeId);
+      if (res.success) setProfileDetails(res.profile || null);
+    } catch (err) {
+      showToast(err.message || 'Failed to load profile details', 'error');
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -178,11 +197,15 @@ export function Navbar({ onOpenPunchModal }) {
         </button>
 
         {/* User profile & Logout */}
-        <div className="flex items-center gap-3 pl-3 border-l border-theme">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-semibold text-primary">{user?.firstName} {user?.lastName}</p>
-            <p className="text-[10px] text-secondary">{user?.email}</p>
-          </div>
+        <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
+          <button
+            onClick={handleOpenProfile}
+            title="Open my profile"
+            className="text-right hidden sm:block hover:bg-slate-800/70 rounded-xl px-2 py-1 transition-colors"
+          >
+            <p className="text-xs font-semibold text-white">{user?.firstName} {user?.lastName}</p>
+            <p className="text-[10px] text-slate-400">{user?.email}</p>
+          </button>
           <button
             onClick={logout}
             title="Logout"
@@ -192,6 +215,68 @@ export function Navbar({ onOpenPunchModal }) {
           </button>
         </div>
       </div>
+
+      <Modal
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        title={`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'My Profile'}
+        subtitle={user?.email}
+        maxWidth="max-w-xl"
+        slideFromRight
+      >
+        {profileLoading ? (
+          <p className="py-8 text-center text-xs text-slate-400">Loading profile...</p>
+        ) : (
+          <div className="space-y-4 text-xs">
+            <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 space-y-2">
+              <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Account Details</h5>
+              <div className="flex justify-between"><span className="text-slate-500">Name:</span><span className="text-white font-medium">{user?.firstName} {user?.lastName}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Email:</span><span className="text-white font-medium">{user?.email}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Role:</span><span className="text-brand-300 font-medium">{user?.roleName || user?.role}</span></div>
+              {user?.phone && <div className="flex justify-between"><span className="text-slate-500">Phone:</span><span className="text-white font-medium">{user.phone}</span></div>}
+            </div>
+
+            {profileDetails && (
+              <>
+                <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 space-y-2">
+                  <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Basic Details</h5>
+                  <div className="flex justify-between"><span className="text-slate-500">Employee Code:</span><span className="text-white font-medium">{profileDetails.employee.code}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Phone:</span><span className="text-white font-medium">{profileDetails.employee.phone || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Joining Date:</span><span className="text-white font-medium">{profileDetails.employee.joiningDate || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Status:</span><span className="text-white font-medium">{profileDetails.employee.status}</span></div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 space-y-2">
+                  <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Organization</h5>
+                  <div className="flex justify-between"><span className="text-slate-500">Company:</span><span className="text-white font-medium">{profileDetails.organization.company?.name || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Department:</span><span className="text-white font-medium">{profileDetails.organization.department?.name || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Job Position:</span><span className="text-white font-medium">{profileDetails.organization.jobPosition?.name || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Manager:</span><span className="text-white font-medium">{profileDetails.organization.manager?.name || '—'}</span></div>
+                </div>
+
+                {profileDetails.employment && (
+                  <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 space-y-2">
+                    <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Current Employment</h5>
+                    <div className="flex justify-between"><span className="text-slate-500">Contract:</span><span className="text-white font-medium">{profileDetails.employment.type}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Contract Period:</span><span className="text-white font-medium">{profileDetails.employment.startDate} to {profileDetails.employment.endDate || 'Ongoing'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Salary:</span><span className="text-emerald-400 font-bold">{profileDetails.employment.salary ? `$${parseFloat(profileDetails.employment.salary).toLocaleString()}` : '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Schedule:</span><span className="text-white font-medium">{profileDetails.employment.workingSchedule || '—'}</span></div>
+                  </div>
+                )}
+
+                <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 space-y-2">
+                  <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">HR & Payroll Summary</h5>
+                  <div className="flex justify-between"><span className="text-slate-500">Worked Hours:</span><span className="text-white font-medium">{profileDetails.summary.attendance.workedHours || 0}h</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Leave Allocated:</span><span className="text-white font-medium">{profileDetails.summary.leave.allocated || 0} days</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Leave Taken:</span><span className="text-white font-medium">{profileDetails.summary.leave.taken || 0} days</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Leave Remaining:</span><span className="text-white font-medium">{profileDetails.summary.leave.remaining || 0} days</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Latest Net Salary:</span><span className="text-emerald-400 font-bold">{profileDetails.summary.payroll.latestPayslip?.netSalary ? `$${parseFloat(profileDetails.summary.payroll.latestPayslip.netSalary).toLocaleString()}` : '—'}</span></div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
     </header>
   );
 }

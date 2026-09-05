@@ -139,6 +139,7 @@ export function PayslipPage({ preSelectedPayslipId }) {
                 <th className="py-3.5 px-4 font-semibold">Net Salary</th>
                 <th className="py-3.5 px-4 font-semibold">Status</th>
                 <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+                <th className="py-3.5 px-4 font-semibold text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -250,6 +251,7 @@ export function PayslipPage({ preSelectedPayslipId }) {
                 <p><strong className="text-slate-500 font-medium">Bank Name:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.bank_name || 'Direct Deposit'}</span></p>
                 <p><strong className="text-slate-500 font-medium">Account Number:</strong> <span className="font-mono text-slate-800">{selectedPayslipData.payslip.bank_account_number || '••••••••'}</span></p>
                 <p><strong className="text-slate-500 font-medium">IFSC / SWIFT:</strong> <span className="font-mono text-slate-800">{selectedPayslipData.payslip.bank_ifsc_swift || 'N/A'}</span></p>
+                <p><strong className="text-slate-500 font-medium">Working Days:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.present_days} / {selectedPayslipData.payslip.working_days} Days</span></p>
                 <p><strong className="text-slate-500 font-medium">Payment Status:</strong> <span className="font-bold text-emerald-700">{selectedPayslipData.payslip.status}</span></p>
               </div>
             </div>

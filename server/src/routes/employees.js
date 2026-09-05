@@ -100,19 +100,26 @@ router.get('/:id', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied: You can only view your own profile.' });
     }
 
-    // 1. Employee Info
+    // 1. Employee Info. Keep this projection limited to profile-safe fields.
     const empRes = await query(
-      `SELECT e.*, d.name as department_name, des.name as designation_name,
-              m.first_name || ' ' || m.last_name as manager_name,
+            `SELECT e.id, e.employee_code, e.first_name, e.last_name, e.email, e.phone,
+              e.joining_date, e.status, e.profile_image, e.gender, e.date_of_birth,
+              e.address, e.bank_name, e.bank_account_number, e.bank_ifsc_swift,
+              e.tax_identifier,
+              d.id as department_id, d.name as department_name,
+              des.id as designation_id, des.name as designation_name,
+              co.id as company_id, co.name as company_name, co.code as company_code,
+              m.id as manager_id, m.first_name || ' ' || m.last_name as manager_name,
               u.email as user_email, u.is_active as user_active,
               r.id as role_id, r.code as role_code, r.name as role_name
        FROM employees e
        LEFT JOIN departments d ON d.id = e.department_id
        LEFT JOIN designations des ON des.id = e.designation_id
+       LEFT JOIN companies co ON co.id = d.company_id
        LEFT JOIN employees m ON m.id = e.manager_id
        LEFT JOIN users u ON u.id = e.user_id
-       LEFT JOIN user_roles ur ON ur.user_id = u.id
-       LEFT JOIN roles r ON r.id = ur.role_id
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id
        WHERE e.id = $1`,
       [id]
     );
@@ -171,9 +178,113 @@ router.get('/:id', async (req, res) => {
       [id]
     );
 
+    // 7. Display-ready summaries built from the existing related records.
+    const attendanceSummaryRes = await query(
+      `SELECT COUNT(*)::int as attendance_days,
+              COALESCE(SUM(worked_hours), 0) as worked_hours,
+              COUNT(*) FILTER (WHERE status = 'PRESENT')::int as present_days,
+              COUNT(*) FILTER (WHERE status = 'ABSENT')::int as absent_days,
+              COUNT(*) FILTER (WHERE status = 'LATE')::int as late_days
+       FROM attendance
+       WHERE employee_id = $1`,
+      [id]
+    );
+
+    const leaveSummaryRes = await query(
+      `SELECT COALESCE(SUM(allocated_days), 0) as leave_allocated,
+              COALESCE(SUM(used_days), 0) as leave_taken,
+              COALESCE(SUM(remaining_days), 0) as leave_remaining
+       FROM leave_allocations
+       WHERE employee_id = $1 AND year = EXTRACT(YEAR FROM CURRENT_DATE)::int`,
+      [id]
+    );
+
+    const currentContract = contractsRes.rows.find(contract => contract.status === 'ACTIVE') || contractsRes.rows[0] || null;
+    const latestPayslip = payslipsRes.rows[0] || null;
+    const attendanceSummary = attendanceSummaryRes.rows[0];
+    const leaveSummary = leaveSummaryRes.rows[0];
+    const formatPayslip = payslip => payslip ? {
+      id: payslip.id,
+      payslipNumber: payslip.payslip_number,
+      payrollName: payslip.payroll_name,
+      periodStart: payslip.period_start,
+      periodEnd: payslip.period_end,
+      grossSalary: payslip.gross_salary,
+      deductions: payslip.total_deductions,
+      netSalary: payslip.net_salary,
+      status: payslip.status
+    } : null;
+
+    const profile = {
+      employee: {
+        id: employee.id,
+        code: employee.employee_code,
+        fullName: `${employee.first_name} ${employee.last_name}`.trim(),
+        email: employee.email,
+        phone: employee.phone,
+        joiningDate: employee.joining_date,
+        status: employee.status,
+        profileImage: employee.profile_image
+      },
+      organization: {
+        company: employee.company_id ? {
+          id: employee.company_id,
+          name: employee.company_name,
+          code: employee.company_code
+        } : null,
+        department: employee.department_id ? {
+          id: employee.department_id,
+          name: employee.department_name
+        } : null,
+        jobPosition: employee.designation_id ? {
+          id: employee.designation_id,
+          name: employee.designation_name
+        } : null,
+        manager: employee.manager_id ? {
+          id: employee.manager_id,
+          name: employee.manager_name
+        } : null
+      },
+      employment: currentContract ? {
+        id: currentContract.id,
+        type: currentContract.contract_type,
+        startDate: currentContract.contract_start_date,
+        endDate: currentContract.contract_end_date,
+        salary: currentContract.wage,
+        salaryStructure: currentContract.salary_structure_name,
+        workingSchedule: currentContract.working_schedule_name
+      } : null,
+      summary: {
+        attendance: {
+          attendanceDays: attendanceSummary.attendance_days,
+          presentDays: attendanceSummary.present_days,
+          absentDays: attendanceSummary.absent_days,
+          lateDays: attendanceSummary.late_days,
+          workedHours: attendanceSummary.worked_hours,
+          recent: attendanceRes.rows.slice(0, 5).map(attendance => ({
+            date: attendance.date,
+            checkIn: attendance.check_in,
+            checkOut: attendance.check_out,
+            workedHours: attendance.worked_hours,
+            status: attendance.status
+          }))
+        },
+        leave: {
+          allocated: leaveSummary.leave_allocated,
+          taken: leaveSummary.leave_taken,
+          remaining: leaveSummary.leave_remaining
+        },
+        payroll: {
+          latestPayslip: formatPayslip(latestPayslip),
+          recentPayslips: payslipsRes.rows.slice(0, 5).map(formatPayslip)
+        }
+      }
+    };
+
     res.json({
       success: true,
       employee,
+      profile,
       contracts: contractsRes.rows,
       allocations: allocationsRes.rows,
       attendance: attendanceRes.rows,

@@ -108,6 +108,22 @@ export function EmployeePage() {
   const fetchData = async () => {
     try {
       setLoading(true);
+
+      if (isEmployee) {
+        if (!user?.employeeId) {
+          showToast('No employee profile is linked to this account.', 'error');
+          return;
+        }
+
+        const profileRes = await api.getEmployeeDetails(user.employeeId);
+        if (profileRes.success) {
+          setSelectedEmpDetails(profileRes);
+          setDetailsTab('overview');
+          setDetailsModalOpen(true);
+        }
+        return;
+      }
+
       const [empRes, deptRes, desigRes, structRes, schedRes, rolesRes] = await Promise.all([
         api.getEmployees({ department_id: selectedDept, status: selectedStatus, search }),
         api.getDepartments(),
@@ -260,35 +276,37 @@ export function EmployeePage() {
     return badges[roleCode] || 'bg-slate-800 text-slate-300';
   };
 
+  const employeeProfile = selectedEmpDetails?.profile;
+
   return (
     <div className="space-y-6">
-      {/* Header matching Excalidraw specification */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Employees</h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            {viewMode === 'card' ? 'Default view: Kanban' : 'List view for sort, filter and bulk scanning'}
+          <h2 className="text-2xl font-bold text-white tracking-tight">Employee Directory</h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Manage organizational personnel, contracts, schedules, RBAC system roles, and salary structures.
           </p>
         </div>
 
         {(isHR || isAdmin) && (
           <button
             onClick={() => setFormModalOpen(true)}
-            className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg shadow-brand-500/25 transition-all flex items-center gap-2 self-start sm:self-auto"
+            className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2 self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
-            NEW
+            New Employee
           </button>
         )}
       </div>
 
-      {/* Control Bar: Search, Filters & Kanban / List Switcher */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 glass-panel rounded-2xl border border-slate-800 bg-slate-900/60">
-        <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-950 px-3.5 py-2 rounded-xl border border-slate-800">
+      {/* Control Bar: Search, Filters & View Toggle */}
+      {!isEmployee && <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 glass-panel rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
           <Search className="w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search employees..."
+            placeholder="Search by name, code or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="bg-transparent border-none text-xs text-white placeholder-slate-500 focus:outline-none w-full"
@@ -319,142 +337,158 @@ export function EmployeePage() {
             <option value="TERMINATED">Terminated</option>
           </select>
 
-          {/* Kanban / List Toggle Buttons with Text Labels matching Excalidraw */}
           <div className="flex items-center border border-slate-800 rounded-xl p-0.5 bg-slate-950">
             <button
-              onClick={() => setViewMode('card')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                viewMode === 'card'
-                  ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-lg text-xs transition-colors ${viewMode === 'list' ? 'bg-slate-800 text-brand-400' : 'text-slate-400 hover:text-white'}`}
+              title="List View"
             >
-              <Grid className="w-3.5 h-3.5" />
-              Kanban
+              <List className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                viewMode === 'list'
-                  ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
+              onClick={() => setViewMode('card')}
+              className={`p-1.5 rounded-lg text-xs transition-colors ${viewMode === 'card' ? 'bg-slate-800 text-brand-400' : 'text-slate-400 hover:text-white'}`}
+              title="Card View"
             >
-              <List className="w-3.5 h-3.5" />
-              List
+              <Grid className="w-4 h-4" />
             </button>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Main Content: Cards or Table */}
-      {loading ? (
+      {isEmployee ? (
+        <div className="py-20 text-center text-slate-400 text-xs">Your profile details are open.</div>
+      ) : loading ? (
         <div className="py-20 text-center text-slate-500 text-xs">Loading employee directory...</div>
       ) : employees.length === 0 ? (
         <div className="py-20 text-center glass-panel rounded-3xl border border-slate-800 text-slate-400 text-xs">
           No employees found matching criteria.
         </div>
       ) : viewMode === 'card' ? (
-        /* Kanban Card Grid View matching Excalidraw Screen 2 */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-          {employees.map((emp) => {
-            const initials = `${emp.first_name?.[0] || ''}${emp.last_name?.[0] || ''}`.toUpperCase() || 'EM';
-            return (
-              <div
-                key={emp.id}
-                onClick={() => handleOpenDetails(emp.id)}
-                className="glass-panel p-5 rounded-3xl border border-slate-800 hover:border-brand-500/50 hover:bg-slate-900/80 transition-all cursor-pointer flex items-center justify-between group bg-slate-900/60"
-              >
-                <div className="flex items-center gap-4">
-                  {/* Initial Avatar Badge */}
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-600/30 to-indigo-600/30 border border-brand-500/40 flex items-center justify-center font-bold text-sm text-brand-300 shadow-md shrink-0">
-                    {initials}
+        /* Card Grid View */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {employees.map((emp) => (
+            <div
+              key={emp.id}
+              className="glass-panel p-5 rounded-3xl border border-slate-800 hover:border-brand-500/50 transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={emp.profile_image || `https://ui-avatars.com/api/?name=${emp.first_name}+${emp.last_name}&background=0e8fe6&color=fff`}
+                      alt={emp.first_name}
+                      className="w-12 h-12 rounded-2xl object-cover border border-slate-700"
+                    />
+                    <div>
+                      <h4 className="text-sm font-bold text-white leading-tight">{emp.first_name} {emp.last_name}</h4>
+                      <p className="text-[11px] text-brand-400 font-medium mt-0.5">{emp.designation_name || 'Staff'}</p>
+                      <span className={`inline-block mt-1 text-[9px] font-bold px-2 py-0.2 rounded-full border ${getRoleBadge(emp.role_code || 'EMPLOYEE')}`}>
+                        {emp.role_name || emp.role_code || 'Employee'}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-base font-bold text-white group-hover:text-brand-300 transition-colors">
-                      {emp.first_name} {emp.last_name}
-                    </h4>
-                    <p className="text-xs text-slate-400 font-medium mt-0.5">
-                      {emp.designation_name || 'Payroll Specialist'}
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      {emp.department_name || 'General'}
-                    </p>
-                  </div>
+                  <StatusBadge status={emp.status} size="xs" />
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>{emp.status === 'ACTIVE' ? 'Active' : emp.status}</span>
+                <div className="space-y-1.5 text-xs text-slate-400 py-3 border-y border-slate-800/80">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="text-slate-300">{emp.department_name || '—'}</span>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="truncate">{emp.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="text-emerald-400 font-semibold">{emp.wage ? `$${parseFloat(emp.wage).toLocaleString()}/mo` : '—'}</span>
+                  </div>
+                </div>
+              </div>
 
+              <div className="mt-4 pt-2 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Code: <strong className="text-slate-300 font-mono">{emp.employee_code}</strong></span>
+                <div className="flex items-center gap-2">
                   {(isHR || isAdmin) && (
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                    <>
                       <button
                         onClick={() => handleOpenEdit(emp)}
-                        className="p-1 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
                         title="Edit Profile"
                       >
                         <Edit className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteClick(emp)}
-                        className="p-1 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors"
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors"
                         title="Delete Employee"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    </div>
+                    </>
                   )}
+                  <button
+                    onClick={() => handleOpenDetails(emp.id)}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-300 hover:text-white transition-colors"
+                    title="View 360 Profile"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       ) : (
-        /* List / Table View matching Excalidraw Screen 3 */
-        <div className="glass-panel rounded-3xl border border-slate-800 overflow-hidden bg-slate-900/60">
+        /* List / Table View */
+        <div className="glass-panel rounded-3xl border border-slate-800 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950/80 text-slate-400 uppercase tracking-wider border-b border-slate-800 text-[10px]">
                 <tr>
                   <th className="py-3.5 px-4 font-semibold">Employee</th>
-                  <th className="py-3.5 px-4 font-semibold">Work Email</th>
-                  <th className="py-3.5 px-4 font-semibold">Job Position</th>
+                  <th className="py-3.5 px-4 font-semibold">Code</th>
+                  <th className="py-3.5 px-4 font-semibold">System Role</th>
                   <th className="py-3.5 px-4 font-semibold">Department</th>
+                  <th className="py-3.5 px-4 font-semibold">Designation</th>
+                  <th className="py-3.5 px-4 font-semibold">Monthly Wage</th>
                   <th className="py-3.5 px-4 font-semibold">Status</th>
                   <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {employees.map((emp) => (
-                  <tr
-                    key={emp.id}
-                    onClick={() => handleOpenDetails(emp.id)}
-                    className="hover:bg-slate-800/40 transition-colors cursor-pointer"
-                  >
+                  <tr key={emp.id} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-brand-400">
-                          {`${emp.first_name?.[0] || ''}${emp.last_name?.[0] || ''}`.toUpperCase()}
-                        </div>
+                        <img
+                          src={emp.profile_image || `https://ui-avatars.com/api/?name=${emp.first_name}+${emp.last_name}&background=0e8fe6&color=fff`}
+                          alt={emp.first_name}
+                          className="w-8 h-8 rounded-xl object-cover border border-slate-700"
+                        />
                         <div>
                           <p className="font-semibold text-white">{emp.first_name} {emp.last_name}</p>
-                          <p className="text-[10px] font-mono text-slate-400">{emp.employee_code}</p>
+                          <p className="text-[11px] text-slate-400">{emp.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-300 font-mono text-[11px]">{emp.email}</td>
-                    <td className="py-3 px-4 text-slate-300 font-medium">{emp.designation_name || 'Staff'}</td>
-                    <td className="py-3 px-4 text-slate-300">{emp.department_name || '—'}</td>
+                    <td className="py-3 px-4 font-mono font-medium text-slate-300">{emp.employee_code}</td>
                     <td className="py-3 px-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-[10px] font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        <span>{emp.status === 'ACTIVE' ? 'Active' : emp.status}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadge(emp.role_code || 'EMPLOYEE')}`}>
+                        {emp.role_name || emp.role_code || 'Employee'}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-3 px-4 text-slate-300">{emp.department_name || '—'}</td>
+                    <td className="py-3 px-4 text-slate-300">{emp.designation_name || '—'}</td>
+                    <td className="py-3 px-4 text-emerald-400 font-semibold">
+                      {emp.wage ? `$${parseFloat(emp.wage).toLocaleString()}` : '—'}
+                    </td>
+                    <td className="py-3 px-4">
+                      <StatusBadge status={emp.status} size="xs" />
+                    </td>
+                    <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {(isHR || isAdmin) && (
                           <>
@@ -477,7 +511,7 @@ export function EmployeePage() {
                         <button
                           onClick={() => handleOpenDetails(emp.id)}
                           className="p-1.5 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-300 hover:text-white transition-colors"
-                          title="View Employee Form"
+                          title="View 360 Profile"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -491,386 +525,355 @@ export function EmployeePage() {
         </div>
       )}
 
-      {/* Modal: Employee Form View matching Excalidraw Screen 4 */}
+      {/* Modal: 360° Employee Details */}
       <Modal
         isOpen={detailsModalOpen}
         onClose={() => setDetailsModalOpen(false)}
-        title={selectedEmpDetails ? `Employee / ${selectedEmpDetails.employee.first_name} ${selectedEmpDetails.employee.last_name}` : 'Employee Form'}
-        subtitle="Main employee form with related HR actions"
+        title={selectedEmpDetails ? `${selectedEmpDetails.employee.first_name} ${selectedEmpDetails.employee.last_name} (${selectedEmpDetails.employee.employee_code})` : 'Employee Details'}
+        subtitle={selectedEmpDetails?.employee.designation_name || selectedEmpDetails?.employee.email}
         maxWidth="max-w-4xl"
       >
-        {selectedEmpDetails && (() => {
-          const emp = selectedEmpDetails.employee;
-          const initials = `${emp.first_name?.[0] || ''}${emp.last_name?.[0] || ''}`.toUpperCase() || 'EM';
-          const contractsCount = selectedEmpDetails.contracts?.length || 0;
-          const attendanceCount = selectedEmpDetails.attendance?.length || 0;
-          const timeoffCount = selectedEmpDetails.timeoff?.length || selectedEmpDetails.allocations?.length || 0;
-          const payslipsCount = selectedEmpDetails.payslips?.length || 0;
-
-          return (
-            <div className="space-y-6">
-              {/* Header with Avatar and Smart Stat Buttons */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-3xl bg-slate-950/60 border border-slate-800">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-600 border border-brand-400/40 flex items-center justify-center font-bold text-lg text-white shadow-lg shrink-0">
-                    {initials}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white leading-tight">
-                      {emp.first_name} {emp.last_name}
-                    </h3>
-                    <p className="text-xs text-brand-300 font-medium mt-0.5">
-                      {emp.designation_name || 'Payroll Specialist'} • {emp.department_name || 'Finance'}
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-1 font-mono">
-                      {emp.email} | {emp.phone || '+91 98765 43210'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Smart Stat Buttons matching Screen 4 */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {(isHR || isAdmin) && (
-                    <button
-                      onClick={() => {
-                        setDetailsModalOpen(false);
-                        handleOpenEdit(emp);
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all flex items-center gap-1.5"
-                    >
-                      <Edit className="w-3.5 h-3.5 text-brand-400" />
-                      EDIT
-                    </button>
-                  )}
-
+        {selectedEmpDetails && (
+          <div className="space-y-6">
+            {/* Tabs */}
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
+              {[
+                { id: 'overview', label: 'Profile Overview', icon: Users },
+                { id: 'contracts', label: 'Contracts', icon: FileText },
+                { id: 'attendance', label: 'Attendance', icon: Clock },
+                { id: 'timeoff', label: 'Time Off & Leaves', icon: Award },
+                { id: 'payslips', label: 'Payslips History', icon: Receipt },
+              ].map(tab => {
+                const Icon = tab.icon;
+                const active = detailsTab === tab.id;
+                return (
                   <button
-                    onClick={() => setDetailsTab('timeoff')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
-                      detailsTab === 'timeoff'
-                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                        : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                    key={tab.id}
+                    onClick={() => setDetailsTab(tab.id)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+                      active ? 'bg-brand-500 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
-                    <span>Time Off</span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold">
-                      {timeoffCount}
-                    </span>
+                    <Icon className="w-3.5 h-3.5" />
+                    {tab.label}
                   </button>
-
-                  <button
-                    onClick={() => setDetailsTab('contracts')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
-                      detailsTab === 'contracts'
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                        : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
-                    }`}
-                  >
-                    <span>Contracts</span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-                      {contractsCount}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setDetailsTab('attendance')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
-                      detailsTab === 'attendance'
-                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                        : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
-                    }`}
-                  >
-                    <span>Attendance</span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold">
-                      {attendanceCount}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setDetailsTab('payslips')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
-                      detailsTab === 'payslips'
-                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                        : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
-                    }`}
-                  >
-                    <span>Payslips</span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-bold">
-                      {payslipsCount}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Form Navigation Tabs */}
-              <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
-                {[
-                  { id: 'work', label: 'Work Information', icon: Briefcase },
-                  { id: 'private', label: 'Private Information', icon: Users },
-                  { id: 'contracts', label: `Contracts (${contractsCount})`, icon: FileText },
-                  { id: 'attendance', label: `Attendance (${attendanceCount})`, icon: Clock },
-                  { id: 'timeoff', label: `Time Off & Leaves (${timeoffCount})`, icon: Award },
-                  { id: 'payslips', label: `Payslips History (${payslipsCount})`, icon: Receipt },
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  const active = detailsTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setDetailsTab(tab.id)}
-                      className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-                        active
-                          ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* TAB 1: WORK INFORMATION (Exact match with Screen 4) */}
-              {detailsTab === 'work' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-3xl bg-slate-950/40 border border-slate-800">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Department</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-white">
-                      {emp.department_name || 'Finance'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Job Position</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-white">
-                      {emp.designation_name || 'Payroll Specialist'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Manager</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200">
-                      {emp.manager_name || 'Sara Khan'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Work Location</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200">
-                      {emp.address?.split(',')?.[0] || 'Mumbai Office'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Working Schedule</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200">
-                      {selectedEmpDetails.contracts?.[0]?.working_schedule_name || '40 Hours / Week'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Status</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-emerald-400">
-                      {emp.status === 'ACTIVE' ? 'Active' : emp.status}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Company</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200">
-                      OXP Pvt Ltd
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Work Email</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono text-brand-300">
-                      {emp.email}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 2: PRIVATE INFORMATION */}
-              {detailsTab === 'private' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-3xl bg-slate-950/40 border border-slate-800">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Personal Phone</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
-                      {emp.phone || '+91 98765 43210'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Date of Birth</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
-                      {emp.date_of_birth || '15-May-1994'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Gender</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
-                      {emp.gender || 'Not Specified'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Tax ID (PAN/SSN)</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono text-white">
-                      {emp.tax_identifier || 'ABCDE1234F'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Bank Name</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
-                      {emp.bank_name || 'HDFC Bank Ltd'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Bank Account Number</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono text-emerald-400 font-semibold">
-                      {emp.bank_account_number || '50100234567890'}
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Residential Address</label>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
-                      {emp.address || '402, Skyline Residency, Bandra West, Mumbai, Maharashtra 400050'}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 3: CONTRACTS */}
-              {detailsTab === 'contracts' && (
-                <div className="space-y-3">
-                  {selectedEmpDetails.contracts.length === 0 ? (
-                    <p className="text-xs text-slate-400 py-8 text-center glass-panel rounded-2xl border border-slate-800">
-                      No contracts found for this employee.
-                    </p>
-                  ) : (
-                    selectedEmpDetails.contracts.map((c) => (
-                      <div key={c.id} className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-white">{c.contract_type}</span>
-                            <StatusBadge status={c.status} size="xs" />
-                          </div>
-                          <p className="text-xs text-slate-400 mt-1">Structure: <strong className="text-brand-300">{c.salary_structure_name}</strong> • Schedule: {c.working_schedule_name}</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">Period: {c.contract_start_date} to {c.contract_end_date || 'Ongoing'}</p>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-lg font-bold text-emerald-400">₹ {parseFloat(c.wage).toLocaleString('en-IN')}</span>
-                          <p className="text-[10px] text-slate-500">Monthly Base Wage</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {/* TAB 4: ATTENDANCE */}
-              {detailsTab === 'attendance' && (
-                <div className="space-y-2">
-                  {selectedEmpDetails.attendance.length === 0 ? (
-                    <p className="text-xs text-slate-400 py-8 text-center glass-panel rounded-2xl border border-slate-800">
-                      No attendance records logged yet.
-                    </p>
-                  ) : (
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
-                        <tr>
-                          <th className="p-2.5">Date</th>
-                          <th className="p-2.5">Check In</th>
-                          <th className="p-2.5">Check Out</th>
-                          <th className="p-2.5">Worked</th>
-                          <th className="p-2.5">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800">
-                        {selectedEmpDetails.attendance.map((a) => (
-                          <tr key={a.id}>
-                            <td className="p-2.5 text-white font-medium">{a.date}</td>
-                            <td className="p-2.5 text-slate-400">{a.check_in ? new Date(a.check_in).toLocaleTimeString() : '—'}</td>
-                            <td className="p-2.5 text-slate-400">{a.check_out ? new Date(a.check_out).toLocaleTimeString() : '—'}</td>
-                            <td className="p-2.5 text-slate-300">{a.worked_hours}h</td>
-                            <td className="p-2.5"><StatusBadge status={a.status} size="xs" /></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 5: TIME OFF */}
-              {detailsTab === 'timeoff' && (
-                <div className="space-y-4">
-                  <h5 className="text-xs font-bold text-white uppercase">Leave Allocations</h5>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {selectedEmpDetails.allocations.map((a) => (
-                      <div key={a.id} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-                        <span className="text-xs text-slate-400 font-medium block truncate">{a.leave_type_name}</span>
-                        <div className="flex items-baseline gap-1 mt-1">
-                          <span className="text-lg font-bold text-white">{a.remaining_days}</span>
-                          <span className="text-[10px] text-slate-500">/ {a.allocated_days} days left</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <h5 className="text-xs font-bold text-white uppercase mt-4">Recent Time-Off Requests</h5>
-                  {selectedEmpDetails.timeoff?.length === 0 ? (
-                    <p className="text-xs text-slate-500 py-3">No leave requests submitted.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {selectedEmpDetails.timeoff?.map((req) => (
-                        <div key={req.id} className="p-3 rounded-xl bg-slate-950/40 border border-slate-800 flex items-center justify-between text-xs">
-                          <div>
-                            <span className="font-semibold text-white">{req.leave_type_name || 'Leave'}</span>
-                            <p className="text-[11px] text-slate-400">{req.from_date} to {req.to_date} ({req.total_days} days)</p>
-                          </div>
-                          <StatusBadge status={req.status} size="xs" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 6: PAYSLIPS */}
-              {detailsTab === 'payslips' && (
-                <div className="space-y-3">
-                  {selectedEmpDetails.payslips.length === 0 ? (
-                    <p className="text-xs text-slate-400 py-8 text-center glass-panel rounded-2xl border border-slate-800">
-                      No payslips generated yet for this employee.
-                    </p>
-                  ) : (
-                    selectedEmpDetails.payslips.map((ps) => (
-                      <div key={ps.id} className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between">
-                        <div>
-                          <p className="font-bold text-white">{ps.payslip_number}</p>
-                          <p className="text-slate-400 text-[11px]">Period: {ps.period_start} to {ps.period_end}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="font-bold text-emerald-400">₹ {parseFloat(ps.net_salary).toLocaleString('en-IN')}</p>
-                            <p className="text-[10px] text-slate-500">Gross: ₹ {parseFloat(ps.gross_salary).toLocaleString('en-IN')}</p>
-                          </div>
-                          <StatusBadge status={ps.status} size="xs" />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
+                );
+              })}
             </div>
-          );
-        })()}
+
+            {/* Tab 1: Overview */}
+            {detailsTab === 'overview' && (() => {
+              const activeContract = selectedEmpDetails.contracts?.find(c => c.status === 'ACTIVE') || selectedEmpDetails.contracts?.[0];
+              const hasActiveStatus = selectedEmpDetails.employee.status === 'ACTIVE';
+              const hasValidContract = !!activeContract;
+              const hasValidWage = activeContract && parseFloat(activeContract.wage) > 0;
+              const hasBank = !!selectedEmpDetails.employee.bank_account_number;
+              const hasTaxId = !!selectedEmpDetails.employee.tax_identifier;
+              const profileSummary = selectedEmpDetails.profile?.summary || {};
+              const attendanceSummary = profileSummary.attendance || {};
+              const leaveSummary = profileSummary.leave || {};
+              const latestPayslip = profileSummary.payroll?.latestPayslip;
+
+              let payrollStatusText = 'Payroll Ready';
+              let payrollStatusBadge = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+              let payrollStatusIcon = '🟢';
+              let payrollReason = null;
+
+              if (!hasActiveStatus) {
+                payrollStatusText = 'Not Ready (Inactive)';
+                payrollStatusBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                payrollStatusIcon = '🔴';
+                payrollReason = 'Employee record is inactive.';
+              } else if (!hasValidContract) {
+                payrollStatusText = 'Not Ready (No Contract)';
+                payrollStatusBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                payrollStatusIcon = '⚠';
+                payrollReason = 'No active employment contract found. Create a contract in the Contracts module.';
+              } else if (!hasValidWage) {
+                payrollStatusText = 'Not Ready (Missing Salary)';
+                payrollStatusBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                payrollStatusIcon = '🔴';
+                payrollReason = 'Contract salary/wage is missing or zero.';
+              }
+
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
+                      <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Personal & Contact Details</h5>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between gap-4"><span className="text-slate-500">Email:</span> <span className="text-white font-medium truncate">{selectedEmpDetails.employee.email || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Phone:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.phone || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Gender:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.gender || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Date of Birth:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.date_of_birth || '—'}</span></div>
+                        <div className="flex justify-between gap-4"><span className="text-slate-500 shrink-0">Address:</span> <span className="text-white font-medium text-right">{selectedEmpDetails.employee.address || '—'}</span></div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
+                      <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Employment Details</h5>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">System Role:</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadge(selectedEmpDetails.employee.role_code || 'EMPLOYEE')}`}>
+                            {selectedEmpDetails.employee.role_name || selectedEmpDetails.employee.role_code || 'Employee'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between"><span className="text-slate-500">Department:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.department_name || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Designation:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.designation_name || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Joining Date:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.joining_date}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Manager:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.manager_name || 'None'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Status:</span> <StatusBadge status={selectedEmpDetails.employee.status} size="xs" /></div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
+                      <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Bank & Tax Disbursement</h5>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between"><span className="text-slate-500">Bank Name:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.bank_name || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Account Number:</span> <span className="text-white font-mono">{selectedEmpDetails.employee.bank_account_number || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Routing / Swift:</span> <span className="text-white font-mono">{selectedEmpDetails.employee.bank_ifsc_swift || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Tax ID (SSN/EIN):</span> <span className="text-white font-mono">{selectedEmpDetails.employee.tax_identifier || '—'}</span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <Calculator className="w-3.5 h-3.5 text-brand-400" />
+                          Payroll Information & Readiness
+                        </h5>
+                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${payrollStatusBadge}`}>
+                          <span>{payrollStatusIcon}</span>
+                          <span>{payrollStatusText}</span>
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">Employment Status</span>
+                          <p className="font-bold text-white mt-0.5">
+                            {hasActiveStatus ? '🟢 Active' : '🔴 Inactive'}
+                          </p>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">Contract Status</span>
+                          <p className="font-bold text-white mt-0.5">
+                            {activeContract ? (
+                              activeContract.status === 'ACTIVE' ? '🟢 Active' : `⚪ ${activeContract.status}`
+                            ) : '⚠ No Contract'}
+                          </p>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">Contract Salary</span>
+                          <p className="font-bold text-emerald-400 mt-0.5 font-mono">
+                            {hasValidWage ? `$${parseFloat(activeContract.wage).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '🔴 Missing / 0'}
+                          </p>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">Salary Structure</span>
+                          <p className="font-semibold text-white mt-0.5 truncate" title={activeContract?.salary_structure_name || 'Standard Structure'}>
+                            {activeContract?.salary_structure_name || 'Standard Structure'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-800/80 text-xs">
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/40 border border-slate-800/50">
+                          <span className="text-slate-400">Direct Disbursement Bank:</span>
+                          {hasBank ? (
+                            <span className="text-emerald-400 font-semibold flex items-center gap-1 text-[11px]">
+                              <Check className="w-3 h-3" /> Configured
+                            </span>
+                          ) : (
+                            <span className="text-amber-400 font-medium flex items-center gap-1 text-[11px]">
+                              <AlertTriangle className="w-3 h-3" /> ⚠ Missing (Non-blocking)
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/40 border border-slate-800/50">
+                          <span className="text-slate-400">Tax Identification Number:</span>
+                          {hasTaxId ? (
+                            <span className="text-emerald-400 font-semibold flex items-center gap-1 text-[11px]">
+                              <Check className="w-3 h-3" /> Configured
+                            </span>
+                          ) : (
+                            <span className="text-amber-400 font-medium flex items-center gap-1 text-[11px]">
+                              <AlertTriangle className="w-3 h-3" /> ⚠ Missing (Non-blocking)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {payrollReason && (
+                        <div className="mt-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                          <span><strong>Eligibility Action Required:</strong> {payrollReason}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {(isHR || isAdmin) && (
+                      <div className="pt-2 flex justify-end">
+                        <button
+                          onClick={() => {
+                            setDetailsModalOpen(false);
+                            handleOpenEdit(selectedEmpDetails.employee);
+                          }}
+                          className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition-colors"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          Edit Profile & Contract
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
+                      <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Attendance Summary</h5>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">Recorded Days</span>
+                          <p className="text-white font-bold mt-1">{attendanceSummary.attendanceDays ?? 0}</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">Present</span>
+                          <p className="text-emerald-400 font-bold mt-1">{attendanceSummary.presentDays ?? 0}</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">Late</span>
+                          <p className="text-amber-400 font-bold mt-1">{attendanceSummary.lateDays ?? 0}</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">Hours</span>
+                          <p className="text-brand-400 font-bold mt-1">{parseFloat(attendanceSummary.workedHours || 0).toFixed(1)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
+                      <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Leave & Latest Payroll</h5>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between"><span className="text-slate-500">Leave Allocated:</span> <span className="text-white font-medium">{leaveSummary.allocated ?? 0} days</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Leave Taken:</span> <span className="text-white font-medium">{leaveSummary.taken ?? 0} days</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Leave Remaining:</span> <span className="text-emerald-400 font-semibold">{leaveSummary.remaining ?? 0} days</span></div>
+                        <div className="pt-2 mt-2 border-t border-slate-800/80 flex justify-between gap-3"><span className="text-slate-500">Latest Net Pay:</span> <span className="text-emerald-400 font-bold">{latestPayslip ? `$${parseFloat(latestPayslip.netSalary || 0).toLocaleString()}` : 'No payslip yet'}</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Tab 2: Contracts */}
+            {detailsTab === 'contracts' && (
+              <div className="space-y-3">
+                {selectedEmpDetails.contracts.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-4 text-center">No active contracts found for this employee.</p>
+                ) : selectedEmpDetails.contracts.map((c) => (
+                  <div key={c.id} className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white">{c.contract_type}</span>
+                        <StatusBadge status={c.status} size="xs" />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">Structure: <strong className="text-brand-300">{c.salary_structure_name}</strong> • Schedule: {c.working_schedule_name}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Period: {c.contract_start_date} to {c.contract_end_date || 'Ongoing'}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-lg font-bold text-emerald-400">${parseFloat(c.wage).toLocaleString()}</span>
+                      <p className="text-[10px] text-slate-500">Monthly Base Wage</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Tab 3: Attendance */}
+            {detailsTab === 'attendance' && (
+              <div className="space-y-2">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
+                    <tr>
+                      <th className="p-2.5">Date</th>
+                      <th className="p-2.5">Check In</th>
+                      <th className="p-2.5">Check Out</th>
+                      <th className="p-2.5">Worked</th>
+                      <th className="p-2.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {selectedEmpDetails.attendance.map(a => (
+                      <tr key={a.id}>
+                        <td className="p-2.5 text-white font-medium">{a.date}</td>
+                        <td className="p-2.5 text-slate-400">{a.check_in ? new Date(a.check_in).toLocaleTimeString() : '—'}</td>
+                        <td className="p-2.5 text-slate-400">{a.check_out ? new Date(a.check_out).toLocaleTimeString() : '—'}</td>
+                        <td className="p-2.5 text-slate-300">{a.worked_hours}h</td>
+                        <td className="p-2.5"><StatusBadge status={a.status} size="xs" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Tab 4: Time Off & Allocations */}
+            {detailsTab === 'timeoff' && (
+              <div className="space-y-4">
+                <h5 className="text-xs font-bold text-white uppercase">Leave Allocations</h5>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {selectedEmpDetails.allocations.map(al => (
+                    <div key={al.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                      <p className="text-xs font-semibold text-slate-300">{al.leave_type_name}</p>
+                      <p className="text-lg font-bold text-brand-400 mt-1">{al.remaining_days} <span className="text-[11px] font-normal text-slate-500">/ {al.allocated_days} days left</span></p>
+                    </div>
+                  ))}
+                </div>
+
+                <h5 className="text-xs font-bold text-white uppercase mt-4">Recent Requests</h5>
+                <div className="space-y-2">
+                  {selectedEmpDetails.timeOffRequests.map(r => (
+                    <div key={r.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-semibold text-white">{r.leave_type_name}</span> ({r.total_days} days)
+                        <p className="text-slate-400 text-[11px]">{r.from_date} to {r.to_date} • Reason: {r.reason}</p>
+                      </div>
+                      <StatusBadge status={r.status} size="xs" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tab 5: Payslips */}
+            {detailsTab === 'payslips' && (
+              <div className="space-y-2">
+                {selectedEmpDetails.payslips.map(ps => (
+                  <div key={ps.id} className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
+                    <div>
+                      <p className="font-bold text-white">{ps.payslip_number}</p>
+                      <p className="text-slate-400 text-[11px]">Period: {ps.period_start} to {ps.period_end}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-bold text-emerald-400">${parseFloat(ps.net_salary).toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-500">Gross: ${parseFloat(ps.gross_salary).toLocaleString()}</p>
+                      </div>
+                      <StatusBadge status={ps.status} size="xs" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* Modal: Create Employee */}

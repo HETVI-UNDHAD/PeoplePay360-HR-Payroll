@@ -36,7 +36,7 @@ export function Sidebar({ currentTab, setCurrentTab }) {
       id: 'employees',
       label: isEmployee ? 'My Profile' : 'Employees',
       icon: Users,
-      show: true
+      show: !isEmployee
     },
     {
       id: 'contracts',
@@ -91,7 +91,7 @@ export function Sidebar({ currentTab, setCurrentTab }) {
     {
       id: 'departments',
       label: 'Departments',
-      icon: Building2,
+      icon: Building2, 
       show: isHR || isAdmin
     },
     {
