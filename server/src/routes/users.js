@@ -74,11 +74,29 @@ router.post('/', checkRole(ROLES.ADMIN), async (req, res) => {
       [urId, userId, roleId]
     );
 
+    // Also auto-create linked Employee record if not exists
+    const existingEmp = await query('SELECT id FROM employees WHERE LOWER(email) = LOWER($1)', [email.trim()]);
+    if (existingEmp.rows.length === 0) {
+      const countRes = await query('SELECT COUNT(*) FROM employees');
+      const empNum = parseInt(countRes.rows[0].count, 10) + 1001;
+      const employee_code = `EMP-${empNum}`;
+      const empId = uuidv4();
+      await query(
+        `INSERT INTO employees (
+          id, user_id, employee_code, first_name, last_name, email, phone,
+          joining_date, status, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [empId, userId, employee_code, firstName.trim(), lastName.trim(), email.trim().toLowerCase(), phone || null]
+      );
+    } else {
+      await query('UPDATE employees SET user_id = $1 WHERE id = $2 AND user_id IS NULL', [userId, existingEmp.rows[0].id]);
+    }
+
     await logAudit(req.user.id, 'CREATE_USER', 'users', userId, { email, firstName, lastName, roleId }, req);
 
     res.status(201).json({
       success: true,
-      message: 'User created successfully',
+      message: 'User created and employee profile linked successfully',
       userId
     });
   } catch (err) {

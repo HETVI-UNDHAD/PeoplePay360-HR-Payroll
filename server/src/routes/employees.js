@@ -221,21 +221,28 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
 
     const empId = uuidv4();
 
-    // 1. Create linked User account with EMPLOYEE role
-    const userId = uuidv4();
-    const defaultPassword = await bcrypt.hash('Employee@123', 10);
-    await query(
-      `INSERT INTO users (id, email, password_hash, first_name, last_name, phone, is_active, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, TRUE, CURRENT_TIMESTAMP)`,
-      [userId, email.trim().toLowerCase(), defaultPassword, first_name.trim(), last_name.trim(), phone || null]
-    );
-
-    const empRoleRes = await query("SELECT id FROM roles WHERE code = 'EMPLOYEE'");
-    if (empRoleRes.rows.length > 0) {
+    // 1. Link to existing User account or create a new one
+    const userRes = await query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email.trim()]);
+    let userId;
+    if (userRes.rows.length > 0) {
+      userId = userRes.rows[0].id;
+    } else {
+      userId = uuidv4();
+      const defaultPassword = await bcrypt.hash('Employee@123', 10);
       await query(
-        `INSERT INTO user_roles (id, user_id, role_id, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
-        [uuidv4(), userId, empRoleRes.rows[0].id]
+        `INSERT INTO users (id, email, password_hash, first_name, last_name, phone, is_active, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, TRUE, CURRENT_TIMESTAMP)`,
+        [userId, email.trim().toLowerCase(), defaultPassword, first_name.trim(), last_name.trim(), phone || null]
       );
+
+      const empRoleRes = await query("SELECT id FROM roles WHERE code = 'EMPLOYEE'");
+      if (empRoleRes.rows.length > 0) {
+        await query(
+          `INSERT INTO user_roles (id, user_id, role_id, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+           ON CONFLICT DO NOTHING`,
+          [uuidv4(), userId, empRoleRes.rows[0].id]
+        );
+      }
     }
 
     // 2. Create Employee
