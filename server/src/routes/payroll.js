@@ -1190,4 +1190,39 @@ router.post('/payruns/:id/employees/:employeeId/recalculate', checkRole(ROLES.AD
   }
 });
 
+// POST /api/payroll/payruns/:id/send-payslips - Send bulk digital payslip notifications
+router.post('/payruns/:id/send-payslips', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const prRes = await query('SELECT * FROM payrolls WHERE id = $1', [id]);
+    if (prRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Pay run not found.' });
+    }
+
+    const payslipsRes = await query(
+      `SELECT ps.*, e.first_name, e.last_name, e.email
+       FROM payslips ps
+       JOIN employees e ON e.id = ps.employee_id
+       WHERE ps.payroll_id = $1`,
+      [id]
+    );
+
+    if (payslipsRes.rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'No payslips found in this pay run batch.' });
+    }
+
+    await logAudit(req.user.id, 'SEND_PAYSLIPS_BULK', 'payrolls', id, { count: payslipsRes.rows.length }, req);
+
+    res.json({
+      success: true,
+      message: `Digital payslips & email notifications successfully dispatched to all ${payslipsRes.rows.length} employee(s).`,
+      count: payslipsRes.rows.length
+    });
+  } catch (err) {
+    console.error('Send payslips error:', err);
+    res.status(500).json({ success: false, message: 'Failed to dispatch payslips: ' + err.message });
+  }
+});
+
 module.exports = router;

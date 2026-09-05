@@ -29,7 +29,8 @@ import {
   HelpCircle,
   Info,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Send
 } from 'lucide-react';
 
 export function PayRunPage({ onSelectPayslip }) {
@@ -92,6 +93,26 @@ export function PayRunPage({ onSelectPayslip }) {
   // Employee Detail Breakdown Modal
   const [breakdownModalOpen, setBreakdownModalOpen] = useState(false);
   const [selectedEmployeeBreakdown, setSelectedEmployeeBreakdown] = useState(null);
+
+  // Send Bulk Payslips Action
+  const [isSendingPayslips, setIsSendingPayslips] = useState(false);
+
+  const handleSendPayslips = async () => {
+    if (!selectedPayrunId) return;
+    setIsSendingPayslips(true);
+    try {
+      const res = await api.sendPayRunPayslips(selectedPayrunId);
+      if (res.success) {
+        showToast(res.message || 'Digital payslips dispatched to employees successfully!', 'success');
+      } else {
+        showToast(res.message || 'Failed to dispatch payslips.', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Error dispatching payslips.', 'error');
+    } finally {
+      setIsSendingPayslips(false);
+    }
+  };
 
   // Dynamic Payroll Eligibility for New Pay Run
   const [eligibilityData, setEligibilityData] = useState({ eligible: [], ineligible: [], all: [] });
@@ -533,6 +554,19 @@ export function PayRunPage({ onSelectPayslip }) {
                           <CheckCircle2 className="w-4 h-4" />
                           Locked Historical Record
                         </div>
+                      )}
+
+                      {/* Bulk Send Payslips Action */}
+                      {canManagePayroll && (isFinalized || isPaid || currentStatus === 'COMPUTED' || currentStatus === 'REVIEW') && (
+                        <button
+                          onClick={handleSendPayslips}
+                          disabled={isSendingPayslips}
+                          className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-500/25 flex items-center gap-1.5 disabled:opacity-50 transition-all"
+                          title="Send digital payslips & email notifications to all employees in this batch"
+                        >
+                          <Send className={`w-3.5 h-3.5 ${isSendingPayslips ? 'animate-pulse' : ''}`} />
+                          {isSendingPayslips ? 'Sending...' : 'SEND PAYSLIPS'}
+                        </button>
                       )}
                     </div>
                   </div>

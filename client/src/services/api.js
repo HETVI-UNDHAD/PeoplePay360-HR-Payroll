@@ -134,6 +134,7 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(paymentData)
   }),
+  sendPayRunPayslips: (id) => request(`/payroll/payruns/${id}/send-payslips`, { method: 'POST' }),
 
   // Payslips
   getPayslips: (params = {}) => {
