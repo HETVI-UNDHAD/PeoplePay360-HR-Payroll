@@ -491,8 +491,7 @@ router.get('/payruns/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAY
       }
     }
 
-<<<<<<< HEAD
-    // Format employee list with derived payable days and warnings (deduplicated by emp_id)
+    // Format employee list with derived payable days, overtime, unpaid leave deductions and warnings (deduplicated by emp_id)
     const seenEmpIds = new Set();
     const uniqueEmpRows = empRes.rows.filter(row => {
       if (seenEmpIds.has(row.emp_id)) return false;
@@ -501,10 +500,6 @@ router.get('/payruns/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAY
     });
 
     const formattedEmployees = uniqueEmpRows.map(emp => {
-=======
-    // Format employee list with derived payable days, overtime, unpaid leave deductions and warnings
-    const formattedEmployees = empRes.rows.map(emp => {
->>>>>>> bb9c4af (feat(payroll-engine): auto-deduct unpaid leaves LOP and add overtime extra hours pay in salary calculation)
       const wDays = parseFloat(emp.working_days) || 22;
       const pDays = parseFloat(emp.present_days) || 0;
       const plDays = parseFloat(emp.paid_leave_days) || 0;
