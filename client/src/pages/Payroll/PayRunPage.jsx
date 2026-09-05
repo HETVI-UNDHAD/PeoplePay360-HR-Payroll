@@ -808,9 +808,8 @@ export function PayRunPage({ onSelectPayslip }) {
                         <th className="p-3">Department</th>
                         <th className="p-3 text-center">Working Days</th>
                         <th className="p-3 text-center">Present</th>
-                        <th className="p-3 text-center">Paid Leave</th>
-                        <th className="p-3 text-center">Unpaid (LOP)</th>
-                        <th className="p-3 text-center">Overtime</th>
+                        <th className="p-3 text-center">Leave</th>
+                        <th className="p-3 text-center">Unpaid</th>
                         <th className="p-3 text-center font-bold text-brand-400">Payable Days</th>
                         <th className="p-3 text-right">Gross</th>
                         <th className="p-3 text-right">Deductions</th>
@@ -822,7 +821,7 @@ export function PayRunPage({ onSelectPayslip }) {
                     <tbody className="divide-y divide-border-color">
                       {filteredEmployees.length === 0 ? (
                         <tr>
-                          <td colSpan={13} className="p-8 text-center text-text-secondary text-xs">
+                          <td colSpan={12} className="p-8 text-center text-text-secondary text-xs">
                             No employees match the active filters.
                           </td>
                         </tr>
@@ -840,38 +839,18 @@ export function PayRunPage({ onSelectPayslip }) {
                             <td className="p-3 text-center text-text-secondary">{emp.working_days}</td>
                             <td className="p-3 text-center text-emerald-400 font-medium">{emp.present_days}</td>
                             <td className="p-3 text-center text-blue-400">{emp.paid_leave_days}</td>
-                            <td className="p-3 text-center">
-                              {emp.unpaid_leave_days > 0 ? (
-                                <div>
-                                  <span className="font-bold text-rose-400">{emp.unpaid_leave_days}d</span>
-                                  {emp.unpaid_leave_amount > 0 && (
-                                    <p className="text-[10px] text-rose-500 font-mono">-₹{parseFloat(emp.unpaid_leave_amount).toLocaleString()}</p>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-slate-500">0</span>
-                              )}
-                            </td>
-                            <td className="p-3 text-center">
-                              {emp.overtime_amount > 0 ? (
-                                <span className="inline-flex items-center text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                                  +₹{parseFloat(emp.overtime_amount).toLocaleString()} OT
-                                </span>
-                              ) : (
-                                <span className="text-slate-500">—</span>
-                              )}
-                            </td>
+                            <td className="p-3 text-center text-rose-400">{emp.unpaid_leave_days}</td>
                             <td className="p-3 text-center font-bold text-brand-400 bg-brand-500/5">
                               {emp.payable_days}
                             </td>
-                            <td className="p-3 text-right text-text-primary font-medium font-mono">
-                              {emp.gross_salary ? `₹${parseFloat(emp.gross_salary).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                            <td className="p-3 text-right text-text-primary font-medium">
+                              {emp.gross_salary ? `$${parseFloat(emp.gross_salary).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                             </td>
-                            <td className="p-3 text-right text-rose-400 font-medium font-mono">
-                              {emp.total_deductions ? `-₹${parseFloat(emp.total_deductions).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                            <td className="p-3 text-right text-rose-400 font-medium">
+                              {emp.total_deductions ? `-$${parseFloat(emp.total_deductions).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                             </td>
-                            <td className="p-3 text-right font-bold text-emerald-400 text-sm font-mono">
-                              {emp.net_salary ? `₹${parseFloat(emp.net_salary).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                            <td className="p-3 text-right font-bold text-emerald-400 text-sm">
+                              {emp.net_salary ? `$${parseFloat(emp.net_salary).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                             </td>
                             <td className="p-3 text-center">
                               {emp.warnings && emp.warnings.length > 0 ? (
@@ -879,38 +858,53 @@ export function PayRunPage({ onSelectPayslip }) {
                                   className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30"
                                   title={emp.warnings.join(', ')}
                                 >
-                                  <AlertTriangle className="w-3 h-3 shrink-0" />
-                                  {emp.warnings.length} Issue{emp.warnings.length > 1 ? 's' : ''}
+                                  <AlertTriangle className="w-3 h-3" />
+                                  {emp.warnings.length}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                  <Check className="w-3 h-3" />
-                                  Clean
+                                <span className="inline-flex items-center text-[10px] text-emerald-400 font-medium">
+                                  <Check className="w-3.5 h-3.5" />
                                 </span>
                               )}
                             </td>
-                            <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                              <button
-                                onClick={() => {
-                                  setSelectedEmployeeBreakdown(emp);
-                                  setBreakdownModalOpen(true);
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-surface-elevated hover:bg-slate-700 text-text-secondary hover:text-text-primary text-[11px] font-medium border border-border-color inline-flex items-center gap-1"
-                                title="View itemized breakdown trace"
-                              >
-                                <Eye className="w-3 h-3" />
-                                Trace
-                              </button>
-                              {isReview && canManagePayroll && (
+                            <td className="p-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* Detail Breakdown Modal Trigger (§5) */}
                                 <button
-                                  onClick={() => handleRecalculateEmployee(emp.employee_id)}
-                                  className="px-2.5 py-1 rounded-lg bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 text-[11px] font-medium border border-brand-500/30 inline-flex items-center gap-1"
-                                  title="Re-run calculation for this employee"
+                                  onClick={() => {
+                                    setSelectedEmployeeBreakdown(emp);
+                                    setBreakdownModalOpen(true);
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-surface-elevated hover:bg-slate-700 text-text-secondary hover:text-text-primary text-[11px] font-medium border border-border-color flex items-center gap-1"
+                                  title="Inspect Calculation Trace"
                                 >
-                                  <RefreshCw className="w-3 h-3" />
-                                  Recalc
+                                  <Eye className="w-3 h-3" />
+                                  Trace
                                 </button>
-                              )}
+
+                                {/* Per-employee recalculate in REVIEW */}
+                                {isReview && canManagePayroll && (
+                                  <button
+                                    onClick={() => handleRecalculateEmployee(emp.employee_id)}
+                                    className="p-1 rounded-lg bg-surface-elevated hover:bg-slate-700 text-text-secondary hover:text-text-primary text-[11px] border border-border-color"
+                                    title="Recalculate this employee"
+                                  >
+                                    <RefreshCw className="w-3 h-3" />
+                                  </button>
+                                )}
+
+                                {/* Payslip View */}
+                                {emp.payslip_id && (
+                                  <button
+                                    onClick={() => onSelectPayslip && onSelectPayslip(emp.payslip_id)}
+                                    className="px-2 py-1 rounded-lg bg-brand-600/20 text-brand-400 hover:bg-brand-600 hover:text-white border border-brand-500/30 text-[11px] font-semibold transition-all flex items-center gap-1"
+                                    title="View Printable Payslip"
+                                  >
+                                    <Receipt className="w-3 h-3" />
+                                    Payslip
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -963,24 +957,26 @@ export function PayRunPage({ onSelectPayslip }) {
       <Modal
         isOpen={breakdownModalOpen}
         onClose={() => setBreakdownModalOpen(false)}
-        title={`Payroll Breakdown — ${selectedEmployeeBreakdown?.employee_name || 'Employee'}`}
-        subtitle={`Employee Code: ${selectedEmployeeBreakdown?.employee_code || '—'} • Department: ${selectedEmployeeBreakdown?.department_name || '—'}`}
-        maxWidth="max-w-2xl"
+        title="Employee Payroll Breakdown & Calculation Trace"
+        subtitle={selectedEmployeeBreakdown ? `${selectedEmployeeBreakdown.employee_name} (${selectedEmployeeBreakdown.employee_code})` : ''}
+        maxWidth="max-w-3xl"
       >
         {selectedEmployeeBreakdown && (
           <div className="space-y-4 text-xs">
-            {/* Header Metrics */}
-            <div className="grid grid-cols-3 gap-3 p-3.5 rounded-2xl bg-surface-elevated/40 border border-border-color">
+            {/* Employee Meta Summary */}
+            <div className="p-3.5 rounded-2xl bg-surface-elevated border border-border-color grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <span className="text-[10px] text-text-secondary uppercase">Contract Wage</span>
-                <p className="font-bold text-text-primary mt-0.5 font-mono">
-                  ₹{parseFloat(selectedEmployeeBreakdown.contract_wage || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / mo
-                </p>
+                <span className="text-[10px] text-text-secondary uppercase">Department</span>
+                <p className="font-semibold text-text-primary mt-0.5">{selectedEmployeeBreakdown.department_name || 'N/A'}</p>
               </div>
               <div>
-                <span className="text-[10px] text-text-secondary uppercase">Contract Type</span>
-                <p className="font-semibold text-text-primary mt-0.5">
-                  {selectedEmployeeBreakdown.contract_type || 'Permanent'}
+                <span className="text-[10px] text-text-secondary uppercase">Designation</span>
+                <p className="font-semibold text-text-primary mt-0.5">{selectedEmployeeBreakdown.designation_name || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-[10px] text-text-secondary uppercase">Contract Wage</span>
+                <p className="font-bold text-brand-400 mt-0.5">
+                  ${parseFloat(selectedEmployeeBreakdown.contract_wage || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
               <div>
@@ -995,7 +991,7 @@ export function PayRunPage({ onSelectPayslip }) {
             <div className="p-3.5 rounded-2xl bg-surface-elevated/40 border border-border-color space-y-2">
               <h5 className="font-bold text-text-primary flex items-center gap-1.5 text-xs">
                 <Calendar className="w-3.5 h-3.5 text-brand-400" />
-                Attendance, Leaves & Overtime Derivation
+                Attendance & Payable Days Derivation
               </h5>
               <div className="grid grid-cols-5 gap-2 text-center pt-1">
                 <div className="p-2 rounded-xl bg-surface-elevated border border-border-color">
@@ -1011,8 +1007,8 @@ export function PayRunPage({ onSelectPayslip }) {
                   <p className="font-bold text-blue-400 text-sm mt-0.5">{selectedEmployeeBreakdown.paid_leave_days}</p>
                 </div>
                 <div className="p-2 rounded-xl bg-surface-elevated border border-border-color">
-                  <span className="text-[10px] text-rose-400 uppercase">Unpaid (LOP)</span>
-                  <p className="font-bold text-rose-400 text-sm mt-0.5">{selectedEmployeeBreakdown.unpaid_leave_days}d</p>
+                  <span className="text-[10px] text-rose-400 uppercase">Unpaid Leave</span>
+                  <p className="font-bold text-rose-400 text-sm mt-0.5">{selectedEmployeeBreakdown.unpaid_leave_days}</p>
                 </div>
                 <div className="p-2 rounded-xl bg-brand-500/15 border border-brand-500/40">
                   <span className="text-[10px] text-brand-400 uppercase font-bold">Payable Days</span>
@@ -1020,7 +1016,7 @@ export function PayRunPage({ onSelectPayslip }) {
                 </div>
               </div>
               <p className="text-[11px] text-text-secondary pt-1">
-                Formula applied: <code className="text-brand-300 font-mono">min(Working Days, Present Days + Paid Leave)</code>. Unpaid absences deduct exact daily rate loss-of-pay.
+                Formula applied: <code className="text-brand-300 font-mono">min(Working Days, Present Days + Paid Leave)</code>. Unpaid absences adjust wage pro-rata.
               </p>
             </div>
 
@@ -1030,8 +1026,8 @@ export function PayRunPage({ onSelectPayslip }) {
               <div className="p-3.5 rounded-2xl bg-surface-elevated/40 border border-border-color space-y-2">
                 <div className="flex items-center justify-between">
                   <h5 className="font-bold text-emerald-400 uppercase tracking-wider text-[11px]">Gross Earnings</h5>
-                  <span className="font-bold text-emerald-400 text-sm font-mono">
-                    ₹{parseFloat(selectedEmployeeBreakdown.gross_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="font-bold text-emerald-400 text-sm">
+                    ${parseFloat(selectedEmployeeBreakdown.gross_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="space-y-1.5 pt-1">
@@ -1047,8 +1043,8 @@ export function PayRunPage({ onSelectPayslip }) {
                             <span className="text-[10px] font-mono text-brand-400 ml-1.5">({line.rule_code})</span>
                             <p className="text-[10px] text-text-secondary">{line.computation_type} {line.rate ? `• ${line.rate}%` : ''}</p>
                           </div>
-                          <span className="font-bold text-text-primary font-mono">
-                            ₹{parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <span className="font-bold text-text-primary">
+                            ${parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ))
@@ -1060,8 +1056,8 @@ export function PayRunPage({ onSelectPayslip }) {
               <div className="p-3.5 rounded-2xl bg-surface-elevated/40 border border-border-color space-y-2">
                 <div className="flex items-center justify-between">
                   <h5 className="font-bold text-rose-400 uppercase tracking-wider text-[11px]">Total Deductions</h5>
-                  <span className="font-bold text-rose-400 text-sm font-mono">
-                    -₹{parseFloat(selectedEmployeeBreakdown.total_deductions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="font-bold text-rose-400 text-sm">
+                    -${parseFloat(selectedEmployeeBreakdown.total_deductions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="space-y-1.5 pt-1">
@@ -1077,8 +1073,8 @@ export function PayRunPage({ onSelectPayslip }) {
                             <span className="text-[10px] font-mono text-rose-400 ml-1.5">({line.rule_code})</span>
                             <p className="text-[10px] text-text-secondary">{line.computation_type} {line.rate ? `• ${line.rate}%` : ''}</p>
                           </div>
-                          <span className="font-bold text-rose-400 font-mono">
-                            -₹{parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <span className="font-bold text-rose-400">
+                            -${parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ))
@@ -1091,12 +1087,12 @@ export function PayRunPage({ onSelectPayslip }) {
             <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Final Net Pay Due</span>
-                <p className="text-[11px] text-text-secondary mt-0.5 font-mono">
-                  Gross (₹{parseFloat(selectedEmployeeBreakdown.gross_salary || 0).toLocaleString()}) − Deductions (₹{parseFloat(selectedEmployeeBreakdown.total_deductions || 0).toLocaleString()})
+                <p className="text-[11px] text-text-secondary mt-0.5">
+                  Gross Earnings (${parseFloat(selectedEmployeeBreakdown.gross_salary || 0).toLocaleString()}) − Total Deductions (${parseFloat(selectedEmployeeBreakdown.total_deductions || 0).toLocaleString()})
                 </p>
               </div>
-              <p className="text-xl font-extrabold text-emerald-400 font-mono">
-                ₹{parseFloat(selectedEmployeeBreakdown.net_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <p className="text-xl font-extrabold text-emerald-400">
+                ${parseFloat(selectedEmployeeBreakdown.net_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
 

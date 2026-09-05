@@ -29,7 +29,7 @@ function MainLayout() {
 
   // Strict role guards:
   // 1. Employee only allowed in self-service tabs
-  const employeeAllowedTabs = ['dashboard', 'contracts', 'attendance', 'timeoff', 'payslips'];
+  const employeeAllowedTabs = ['dashboard', 'employees', 'contracts', 'attendance', 'timeoff', 'payslips'];
   // 2. HR Manager handles HR modules, but strictly no payroll processing, salary structures, or admin config
   const hrBlockedTabs = ['payruns', 'salary-structures', 'salary-rules', 'payments', 'users', 'audit'];
 

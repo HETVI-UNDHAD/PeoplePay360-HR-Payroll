@@ -62,6 +62,7 @@ INSERT INTO salary_rules (id, salary_structure_id, name, code, sequence, categor
 ('rule-basic', 'struct-reg', 'Basic Salary', 'BASIC', 10, 'BASIC', 'PERCENTAGE', 0.00, 50.00, 'WAGE', NULL, TRUE),
 ('rule-hra', 'struct-reg', 'House Rent Allowance (HRA)', 'HRA', 20, 'ALLOWANCE', 'PERCENTAGE', 0.00, 20.00, 'BASIC', NULL, TRUE),
 ('rule-ta', 'struct-reg', 'Transport Allowance', 'TA', 30, 'ALLOWANCE', 'FIXED', 300.00, 0.00, NULL, NULL, TRUE),
+('rule-ot', 'struct-reg', 'Overtime Allowance', 'OT', 40, 'ALLOWANCE', 'FORMULA', 0.00, 0.00, NULL, 'OVERTIME_PAY', TRUE),
 ('rule-pf', 'struct-reg', 'Provident Fund (PF)', 'PF', 50, 'DEDUCTION', 'PERCENTAGE', 0.00, 12.00, 'BASIC', NULL, TRUE),
 ('rule-tax', 'struct-reg', 'Income Tax Withholding', 'TAX', 60, 'DEDUCTION', 'FORMULA', 0.00, 0.00, NULL, '(BASIC + HRA) * 0.08', TRUE)
 ON CONFLICT (id) DO NOTHING;

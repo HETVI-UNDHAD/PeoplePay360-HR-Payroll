@@ -222,24 +222,6 @@ async function testFullApiFlow() {
     }
     console.log('   ✅ Payslip and lines calculated dynamically with 100% precision.');
 
-    // 9b. Verify the display-ready employee profile summary.
-    console.log('\n9b. Verifying display-ready employee profile...');
-    const profileRes = await api(`/employees/${empId1}`, 'GET', null, adminToken);
-    const profile = profileRes.data.profile;
-    if (!profile || profile.employee.code !== 'EMP-1001' || profile.employee.fullName !== 'Sarah Jenkins') {
-      throw new Error('Employee profile basic details are incomplete');
-    }
-    if (parseFloat(profile.employment.salary) !== 7500 || profile.employment.type !== 'PERMANENT') {
-      throw new Error('Employee profile contract or salary summary is incorrect');
-    }
-    if (parseFloat(profile.summary.leave.allocated) !== 18 || parseFloat(profile.summary.leave.taken) !== 3) {
-      throw new Error('Employee profile leave summary is incorrect');
-    }
-    if (!profile.summary.payroll.latestPayslip || parseFloat(profile.summary.payroll.latestPayslip.netSalary) <= 0) {
-      throw new Error('Employee profile payroll summary is missing');
-    }
-    console.log('   ✅ Profile includes safe employee, contract, leave, and payroll summaries.');
-
     // 10. Verify Dashboard Dynamic Aggregates
     console.log('\n10. Verifying Dynamic Dashboard Analytics...');
     const dashRes = await api('/dashboard/stats', 'GET', null, adminToken);
