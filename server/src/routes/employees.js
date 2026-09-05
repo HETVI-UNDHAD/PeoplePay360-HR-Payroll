@@ -454,4 +454,41 @@ router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) =>
   }
 });
 
+// DELETE /api/employees/:id - Delete Employee (HR_MANAGER, ADMIN)
+router.delete('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const empRes = await query('SELECT e.*, u.email as user_email FROM employees e LEFT JOIN users u ON u.id = e.user_id WHERE e.id = $1', [id]);
+    if (empRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+    const emp = empRes.rows[0];
+    if (emp.user_email === 'admin@peoplepay360.com') {
+      return res.status(403).json({ success: false, message: 'Cannot delete primary system Administrator' });
+    }
+
+    // Clean up dependent records safely
+    await query('DELETE FROM payments WHERE employee_id = $1', [id]);
+    await query('DELETE FROM payslip_lines WHERE payslip_id IN (SELECT id FROM payslips WHERE employee_id = $1)', [id]);
+    await query('DELETE FROM payslips WHERE employee_id = $1', [id]);
+    await query('DELETE FROM payroll_employees WHERE employee_id = $1', [id]);
+    await query('DELETE FROM time_off_requests WHERE employee_id = $1', [id]);
+    await query('DELETE FROM leave_allocations WHERE employee_id = $1', [id]);
+    await query('DELETE FROM attendance WHERE employee_id = $1', [id]);
+    await query('DELETE FROM contracts WHERE employee_id = $1', [id]);
+    await query('DELETE FROM employees WHERE id = $1', [id]);
+
+    if (emp.user_id) {
+      await query('DELETE FROM user_roles WHERE user_id = $1', [emp.user_id]);
+      await query('DELETE FROM users WHERE id = $1', [emp.user_id]);
+    }
+
+    await logAudit(req.user.id, 'DELETE_EMPLOYEE', 'employees', id, { employee_code: emp.employee_code, name: `${emp.first_name} ${emp.last_name}` }, req);
+    res.json({ success: true, message: `Employee ${emp.first_name} ${emp.last_name} deleted successfully` });
+  } catch (err) {
+    console.error('Delete employee error:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete employee' });
+  }
+});
+
 module.exports = router;

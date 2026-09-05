@@ -10,7 +10,7 @@ const { computeSalary } = require('../engine/salaryEngine');
 router.use(authenticate);
 
 // GET /api/payroll/payruns - List all pay runs
-router.get('/payruns', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER, ROLES.HR_MANAGER), async (req, res) => {
+router.get('/payruns', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { status, year } = req.query;
 
@@ -49,7 +49,7 @@ router.get('/payruns', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL
 });
 
 // GET /api/payroll/payruns/:id - Get Pay Run details with selected employees and payslips
-router.get('/payruns/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER, ROLES.HR_MANAGER), async (req, res) => {
+router.get('/payruns/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { id } = req.params;
 

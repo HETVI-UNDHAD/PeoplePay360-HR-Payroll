@@ -35,7 +35,7 @@ import {
 } from 'recharts';
 
 export function Dashboard({ onNavigate }) {
-  const { user, isEmployee } = useAuth();
+  const { user, isEmployee, isPayrollTeam, isAdmin } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -174,13 +174,24 @@ export function Dashboard({ onNavigate }) {
           <p className="text-xs text-slate-400 mt-1">Real-time organizational analytics computed directly from database records.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => onNavigate('payruns')}
-            className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2"
-          >
-            <DollarSign className="w-4 h-4" />
-            Process Pay Run
-          </button>
+          {(isPayrollTeam || isAdmin) && (
+            <button
+              onClick={() => onNavigate('payruns')}
+              className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2"
+            >
+              <DollarSign className="w-4 h-4" />
+              Process Pay Run
+            </button>
+          )}
+          {user?.role === 'HR_MANAGER' && (
+            <button
+              onClick={() => onNavigate('employees')}
+              className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2"
+            >
+              <Users className="w-4 h-4" />
+              Manage Employees
+            </button>
+          )}
           <button
             onClick={() => onNavigate('reports')}
             className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all flex items-center gap-2"

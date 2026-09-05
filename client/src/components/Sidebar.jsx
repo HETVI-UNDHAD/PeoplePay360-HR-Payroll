@@ -77,7 +77,7 @@ export function Sidebar({ currentTab, setCurrentTab }) {
       show: true,
       children: [
         { id: 'payruns', label: 'Pay Runs', icon: Calculator, show: isPayrollTeam },
-        { id: 'payslips', label: isEmployee ? 'My Payslips' : 'Payslips', icon: Receipt, show: true },
+        { id: 'payslips', label: (isPayrollTeam || isAdmin) ? 'Payslips' : 'My Payslips', icon: Receipt, show: true },
         { id: 'salary-structures', label: 'Salary Structures', icon: FileSpreadsheet, show: isPayrollAdmin || isAdmin },
         { id: 'salary-rules', label: 'Salary Rules & Engine', icon: Sliders, show: isPayrollAdmin || isAdmin },
       ]
@@ -86,7 +86,7 @@ export function Sidebar({ currentTab, setCurrentTab }) {
       id: 'payments',
       label: 'Payments',
       icon: CreditCard,
-      show: isPayrollTeam || isHR || isAdmin
+      show: isPayrollTeam || isAdmin
     },
     {
       id: 'departments',

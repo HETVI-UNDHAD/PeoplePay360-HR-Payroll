@@ -23,7 +23,9 @@ import {
   Award,
   Receipt,
   UserCheck,
-  ShieldCheck
+  ShieldCheck,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 export function EmployeePage() {
@@ -47,6 +49,10 @@ export function EmployeePage() {
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [selectedEmpDetails, setSelectedEmpDetails] = useState(null);
   const [detailsTab, setDetailsTab] = useState('overview'); // overview, contracts, attendance, timeoff, payslips
+
+  // Delete Confirmation Modal
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
+  const [empToDelete, setEmpToDelete] = useState(null);
 
   // Edit Employee Modal
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -222,6 +228,24 @@ export function EmployeePage() {
     }
   };
 
+  const handleDeleteClick = (emp) => {
+    setEmpToDelete(emp);
+    setDeleteConfirmModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!empToDelete) return;
+    try {
+      const res = await api.deleteEmployee(empToDelete.id);
+      showToast(res.message || 'Employee deleted successfully', 'success');
+      setDeleteConfirmModal(false);
+      setEmpToDelete(null);
+      fetchData();
+    } catch (err) {
+      showToast(err.message || 'Failed to delete employee', 'error');
+    }
+  };
+
   const getRoleBadge = (roleCode) => {
     const badges = {
       ADMIN: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
@@ -365,13 +389,22 @@ export function EmployeePage() {
                 <span>Code: <strong className="text-slate-300 font-mono">{emp.employee_code}</strong></span>
                 <div className="flex items-center gap-2">
                   {(isHR || isAdmin) && (
-                    <button
-                      onClick={() => handleOpenEdit(emp)}
-                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
-                      title="Edit Profile"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleOpenEdit(emp)}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
+                        title="Edit Profile"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(emp)}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors"
+                        title="Delete Employee"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
                   )}
                   <button
                     onClick={() => handleOpenDetails(emp.id)}
@@ -435,13 +468,22 @@ export function EmployeePage() {
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {(isHR || isAdmin) && (
-                          <button
-                            onClick={() => handleOpenEdit(emp)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
-                            title="Edit Profile & Contract"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleOpenEdit(emp)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
+                              title="Edit Profile & Contract"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(emp)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors"
+                              title="Delete Employee"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleOpenDetails(emp.id)}
@@ -1048,6 +1090,44 @@ export function EmployeePage() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteConfirmModal}
+        onClose={() => setDeleteConfirmModal(false)}
+        title="Confirm Employee Deletion"
+        subtitle="This action will permanently delete the employee record and related credentials"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-rose-200">Are you sure you want to delete this employee?</p>
+              <p className="mt-1 text-slate-400">
+                You are about to remove <span className="font-bold text-white">{empToDelete?.first_name} {empToDelete?.last_name}</span> ({empToDelete?.employee_code}).
+                Their contracts, attendance history, and user authentication account will be removed.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmModal(false)}
+              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-600/25"
+            >
+              Delete Employee Record
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

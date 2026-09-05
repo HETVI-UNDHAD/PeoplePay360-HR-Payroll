@@ -81,4 +81,59 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
   }
 });
 
+// PUT /api/schedules/:id - Update schedule (ADMIN, HR_MANAGER)
+router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, timezone, weekly_working_hours, working_days, start_time, end_time, break_hours, is_active } = req.body;
+
+    await query(
+      `UPDATE working_schedules SET
+        name = COALESCE($1, name),
+        timezone = COALESCE($2, timezone),
+        weekly_working_hours = COALESCE($3, weekly_working_hours),
+        working_days = COALESCE($4, working_days),
+        start_time = COALESCE($5, start_time),
+        end_time = COALESCE($6, end_time),
+        break_hours = COALESCE($7, break_hours),
+        is_active = COALESCE($8, is_active),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $9`,
+      [
+        name || null, timezone || null, weekly_working_hours ? parseFloat(weekly_working_hours) : null,
+        working_days || null, start_time || null, end_time || null,
+        break_hours !== undefined ? parseFloat(break_hours) : null,
+        is_active !== undefined ? is_active : null,
+        id
+      ]
+    );
+
+    // Update day records if working_days changed
+    if (working_days) {
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const activeDaysList = working_days.split(',');
+      for (const day of days) {
+        const isWork = activeDaysList.includes(day);
+        await query(
+          `UPDATE working_schedule_days SET
+            is_working_day = $1,
+            start_time = $2,
+            end_time = $3,
+            break_hours = $4,
+            hours = $5
+           WHERE schedule_id = $6 AND day_of_week = $7`,
+          [isWork, isWork ? (start_time || '09:00:00') : '00:00:00', isWork ? (end_time || '18:00:00') : '00:00:00', isWork ? (parseFloat(break_hours) || 1.0) : 0, isWork ? 8.0 : 0.0, id, day]
+        );
+      }
+    }
+
+    await logAudit(req.user.id, 'UPDATE_SCHEDULE', 'working_schedules', id, { name, weekly_working_hours }, req);
+    res.json({ success: true, message: 'Schedule updated successfully' });
+  } catch (err) {
+    console.error('Update schedule error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update schedule' });
+  }
+});
+
 module.exports = router;
+

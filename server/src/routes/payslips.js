@@ -32,8 +32,11 @@ router.get('/', async (req, res) => {
     `;
     const params = [];
 
-    // Security check: Employee can only view own payslips
-    if (userRole === ROLES.EMPLOYEE) {
+    // Security check: Employee and HR Manager can only view own personal payslips
+    if (userRole === ROLES.EMPLOYEE || userRole === ROLES.HR_MANAGER) {
+      if (!userEmpId) {
+        return res.json({ success: true, payslips: [] });
+      }
       params.push(userEmpId);
       sql += ` AND ps.employee_id = $${params.length}`;
     } else if (employee_id) {
@@ -108,8 +111,8 @@ router.get('/:id', async (req, res) => {
 
     const payslip = psRes.rows[0];
 
-    // Security check: Employee can only view own payslip
-    if (userRole === ROLES.EMPLOYEE && payslip.employee_id !== userEmpId) {
+    // Security check: Employee and HR Manager can only view own payslip
+    if ((userRole === ROLES.EMPLOYEE || userRole === ROLES.HR_MANAGER) && payslip.employee_id !== userEmpId) {
       return res.status(403).json({ success: false, message: 'Access denied: You can only view your own payslips.' });
     }
 

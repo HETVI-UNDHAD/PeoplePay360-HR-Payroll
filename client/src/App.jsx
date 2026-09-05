@@ -26,9 +26,18 @@ function MainLayout() {
   const [selectedStructureId, setSelectedStructureId] = useState(null);
   const [preSelectedPayslipId, setPreSelectedPayslipId] = useState(null);
 
-  // Strict role guard: Revert to dashboard if employee attempts to access restricted tabs
+  // Strict role guards:
+  // 1. Employee only allowed in self-service tabs
   const employeeAllowedTabs = ['dashboard', 'employees', 'contracts', 'attendance', 'timeoff', 'payslips'];
-  const activeTab = (isEmployee && !employeeAllowedTabs.includes(currentTab)) ? 'dashboard' : currentTab;
+  // 2. HR Manager handles HR modules, but strictly no payroll processing, salary structures, or admin config
+  const hrBlockedTabs = ['payruns', 'salary-structures', 'salary-rules', 'payments', 'users', 'audit'];
+
+  let activeTab = currentTab;
+  if (isEmployee && !employeeAllowedTabs.includes(currentTab)) {
+    activeTab = 'dashboard';
+  } else if (user?.role === 'HR_MANAGER' && hrBlockedTabs.includes(currentTab)) {
+    activeTab = 'dashboard';
+  }
 
   if (loading) {
     return (

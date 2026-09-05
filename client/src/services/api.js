@@ -57,6 +57,7 @@ export const api = {
   getEmployeeDetails: (id) => request(`/employees/${id}`),
   createEmployee: (data) => request('/employees', { method: 'POST', body: JSON.stringify(data) }),
   updateEmployee: (id, data) => request(`/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteEmployee: (id) => request(`/employees/${id}`, { method: 'DELETE' }),
 
   // Contracts
   getContracts: (params = {}) => {
@@ -70,6 +71,7 @@ export const api = {
   getSchedules: () => request('/schedules'),
   getScheduleDetails: (id) => request(`/schedules/${id}`),
   createSchedule: (data) => request('/schedules', { method: 'POST', body: JSON.stringify(data) }),
+  updateSchedule: (id, data) => request(`/schedules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Attendance
   getTodayAttendance: () => request('/attendance/today'),
