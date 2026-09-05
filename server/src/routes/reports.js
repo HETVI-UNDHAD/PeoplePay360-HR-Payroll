@@ -6,16 +6,26 @@ const { checkRole, ROLES } = require('../middleware/rbac');
 
 router.use(authenticate);
 
-// 1. Employee Report
+// 1. Employee Report (Real-time workforce roster)
 router.get('/employees', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN), async (req, res) => {
   try {
     const { department_id, status } = req.query;
 
     let sql = `
-      SELECT e.id, e.employee_code, e.first_name, e.last_name, e.email, e.phone,
-             e.joining_date, e.status, e.gender, e.bank_name, e.bank_account_number,
-             d.name as department_name, des.name as designation_name,
-             c.wage, c.contract_type, ss.name as salary_structure_name, ws.name as schedule_name
+      SELECT e.employee_code as "Employee Code",
+             e.first_name || ' ' || e.last_name as "Full Name",
+             e.email as "Work Email",
+             e.phone as "Phone Number",
+             d.name as "Department",
+             des.name as "Designation",
+             e.status as "Employee Status",
+             c.contract_type as "Contract Type",
+             COALESCE(c.wage, 0) as "Monthly Base Wage",
+             ss.name as "Salary Structure",
+             ws.name as "Working Schedule",
+             COALESCE(e.bank_name, 'Not Set') as "Bank Name",
+             COALESCE(e.bank_account_number, 'Missing') as "Account Number",
+             TO_CHAR(e.joining_date, 'Mon DD, YYYY') as "Joining Date"
       FROM employees e
       LEFT JOIN departments d ON d.id = e.department_id
       LEFT JOIN designations des ON des.id = e.designation_id
@@ -44,15 +54,21 @@ router.get('/employees', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_
   }
 });
 
-// 2. Attendance Report
+// 2. Attendance Report (Real-time punch audit)
 router.get('/attendance', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN), async (req, res) => {
   try {
     const { start_date, end_date, department_id, status } = req.query;
 
     let sql = `
-      SELECT a.date, a.check_in, a.check_out, a.worked_hours, a.status, a.notes,
-             e.employee_code, e.first_name || ' ' || e.last_name as employee_name,
-             d.name as department_name
+      SELECT TO_CHAR(a.date, 'Mon DD, YYYY') as "Date",
+             e.employee_code as "Employee Code",
+             e.first_name || ' ' || e.last_name as "Employee Name",
+             d.name as "Department",
+             a.status as "Attendance Status",
+             TO_CHAR(a.check_in, 'HH12:MI AM') as "Check In",
+             TO_CHAR(a.check_out, 'HH12:MI AM') as "Check Out",
+             COALESCE(a.worked_hours, 0) as "Hours Worked",
+             COALESCE(a.notes, '—') as "Audit Notes"
       FROM attendance a
       JOIN employees e ON e.id = a.employee_id
       LEFT JOIN departments d ON d.id = e.department_id
@@ -86,15 +102,23 @@ router.get('/attendance', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL
   }
 });
 
-// 3. Time-Off Report
+// 3. Time-Off Report (Real-time leave utilization)
 router.get('/timeoff', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN), async (req, res) => {
   try {
     const { start_date, end_date, status, department_id } = req.query;
 
     let sql = `
-      SELECT tor.*, e.employee_code, e.first_name || ' ' || e.last_name as employee_name,
-             d.name as department_name, tot.name as leave_type_name, tot.is_paid,
-             u.first_name || ' ' || u.last_name as reviewer_name
+      SELECT e.employee_code as "Employee Code",
+             e.first_name || ' ' || e.last_name as "Employee Name",
+             d.name as "Department",
+             tot.name as "Leave Type",
+             CASE WHEN tot.is_paid THEN 'Paid' ELSE 'Unpaid' END as "Policy Type",
+             TO_CHAR(tor.from_date, 'Mon DD, YYYY') as "Start Date",
+             TO_CHAR(tor.to_date, 'Mon DD, YYYY') as "End Date",
+             tor.total_days as "Duration (Days)",
+             tor.status as "Approval Status",
+             COALESCE(tor.reason, '—') as "Reason",
+             COALESCE(u.first_name || ' ' || u.last_name, 'Pending Review') as "Approved / Reviewed By"
       FROM time_off_requests tor
       JOIN employees e ON e.id = tor.employee_id
       JOIN time_off_types tot ON tot.id = tor.time_off_type_id
@@ -130,15 +154,22 @@ router.get('/timeoff', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_AD
   }
 });
 
-// 4. Payroll Summary Report
+// 4. Payroll Summary Report (Real-time pay runs ledger)
 router.get('/payroll-summary', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { year } = req.query;
 
     let sql = `
-      SELECT p.id, p.name, p.period_start, p.period_end, p.status,
-             p.employee_count, p.total_gross, p.total_deductions, p.total_net,
-             p.paid_at, ss.name as salary_structure_name
+      SELECT p.name as "Pay Run Name",
+             TO_CHAR(p.period_start, 'Mon DD, YYYY') as "Period Start",
+             TO_CHAR(p.period_end, 'Mon DD, YYYY') as "Period End",
+             p.status as "Batch Status",
+             COALESCE(p.employee_count, 0) as "Employees Included",
+             COALESCE(p.total_gross, 0) as "Total Gross Payout",
+             COALESCE(p.total_deductions, 0) as "Total Deductions",
+             COALESCE(p.total_net, 0) as "Total Net Disbursed",
+             COALESCE(ss.name, 'Default Structure') as "Salary Structure",
+             CASE WHEN p.paid_at IS NOT NULL THEN TO_CHAR(p.paid_at, 'Mon DD, YYYY HH12:MI AM') ELSE 'Unpaid' END as "Disbursement Timestamp"
       FROM payrolls p
       LEFT JOIN salary_structures ss ON ss.id = p.salary_structure_id
       WHERE 1=1
@@ -160,19 +191,24 @@ router.get('/payroll-summary', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES
   }
 });
 
-// 5. Tax and Deductions Report
+// 5. Tax and Deductions Report (Real-time statutory breakdown)
 router.get('/tax-deductions', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { payroll_id } = req.query;
 
     let sql = `
-      SELECT psl.rule_name, psl.rule_code, psl.category,
-             COUNT(psl.id) as total_occurrences,
-             SUM(psl.amount) as total_amount,
-             p.name as payroll_name, p.period_start, p.period_end
+      SELECT psl.rule_name as "Deduction Component",
+             psl.rule_code as "Rule Code",
+             ps.payslip_number as "Payslip Number",
+             e.employee_code as "Employee Code",
+             e.first_name || ' ' || e.last_name as "Employee Name",
+             p.name as "Payroll Batch",
+             COALESCE(psl.amount, 0) as "Deduction Amount",
+             TO_CHAR(p.period_start, 'Mon YYYY') as "Payroll Month"
       FROM payslip_lines psl
       JOIN payslips ps ON ps.id = psl.payslip_id
       JOIN payrolls p ON p.id = ps.payroll_id
+      JOIN employees e ON e.id = ps.employee_id
       WHERE psl.category = 'DEDUCTION'
     `;
     const params = [];
@@ -182,7 +218,7 @@ router.get('/tax-deductions', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.
       sql += ` AND ps.payroll_id = $${params.length}`;
     }
 
-    sql += ` GROUP BY psl.rule_name, psl.rule_code, psl.category, p.name, p.period_start, p.period_end ORDER BY total_amount DESC`;
+    sql += ` ORDER BY psl.amount DESC`;
 
     const result = await query(sql, params);
     res.json({ success: true, data: result.rows });
@@ -192,22 +228,23 @@ router.get('/tax-deductions', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.
   }
 });
 
-// 6. Salary Cost by Department Report
+// 6. Salary Cost by Department Report (Real-time department expenditure audit)
 router.get('/department-costs', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.HR_MANAGER), async (req, res) => {
   try {
     const sql = `
-      SELECT d.name as department_name, d.code as department_code,
-             COUNT(DISTINCT e.id) as total_employees,
-             COALESCE(SUM(c.wage), 0) as total_base_wages,
-             COALESCE(SUM(ps.gross_salary), 0) as total_gross_disbursed,
-             COALESCE(SUM(ps.total_deductions), 0) as total_deductions,
-             COALESCE(SUM(ps.net_salary), 0) as total_net_disbursed
+      SELECT d.name as "Department Name",
+             d.code as "Department Code",
+             COUNT(DISTINCT e.id) as "Active Headcount",
+             COALESCE(SUM(c.wage), 0) as "Total Base Contract Wages",
+             COALESCE(SUM(ps.gross_salary), 0) as "Gross Salary Disbursed",
+             COALESCE(SUM(ps.total_deductions), 0) as "Total Deductions",
+             COALESCE(SUM(ps.net_salary), 0) as "Net Salary Disbursed"
       FROM departments d
       LEFT JOIN employees e ON e.department_id = d.id AND e.status = 'ACTIVE'
       LEFT JOIN contracts c ON c.employee_id = e.id AND c.status = 'ACTIVE'
       LEFT JOIN payslips ps ON ps.employee_id = e.id AND ps.status = 'PAID'
       GROUP BY d.id, d.name, d.code
-      ORDER BY total_base_wages DESC
+      ORDER BY "Total Base Contract Wages" DESC
     `;
 
     const result = await query(sql);
