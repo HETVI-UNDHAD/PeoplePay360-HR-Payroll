@@ -1,6 +1,9 @@
 /**
  * PeoplePay360 - Dynamic Sequential Salary Rule Engine
  * Evaluates Fixed, Percentage, and Custom Formula Rules in sequence order.
+ * Automatically incorporates:
+ * 1. Unpaid Leave / Loss of Pay (LOP) deductions based on approved unpaid leave days
+ * 2. Overtime / Extra Hours additions based on recorded attendance hours
  */
 
 // Safely evaluate simple math expressions using context variables
@@ -65,40 +68,46 @@ function evaluateCondition(conditionStr, context) {
  * Compute Salary for an Employee
  * @param {Object} contract - Employee contract record (contains wage)
  * @param {Array} rules - Array of salary_rules ordered by sequence ASC
- * @param {Object} attendanceData - { workingDays, presentDays, paidLeaveDays, unpaidLeaveDays }
- * @returns {Object} { lines, grossSalary, totalDeductions, netSalary }
+ * @param {Object} attendanceData - { workingDays, presentDays, paidLeaveDays, unpaidLeaveDays, overtimeHours, standardDailyHours, overtimeMultiplier }
+ * @returns {Object} { lines, grossSalary, totalDeductions, netSalary, overtimeHours, overtimeAmount, unpaidLeaveDays, unpaidLeaveAmount, workingDays, presentDays, paidLeaveDays, payableDays, attendanceRatio, wage }
  */
-function computeSalary(contract, rules, attendanceData = {}) {
+function computeSalary(contract, rules = [], attendanceData = {}) {
   const wage = parseFloat(contract.wage) || 0;
-  const workingDays = parseFloat(attendanceData.workingDays) || 22;
+  const workingDays = Math.max(1, parseFloat(attendanceData.workingDays) || 22);
   const presentDays = parseFloat(attendanceData.presentDays !== undefined ? attendanceData.presentDays : workingDays);
   const paidLeaveDays = parseFloat(attendanceData.paidLeaveDays) || 0;
   const unpaidLeaveDays = parseFloat(attendanceData.unpaidLeaveDays) || 0;
-  const overtimeHours = parseFloat(attendanceData.overtimeHours) || 0;
+  const overtimeHours = Math.max(0, parseFloat(attendanceData.overtimeHours) || 0);
+  const standardDailyHours = Math.max(1, parseFloat(attendanceData.standardDailyHours) || 8.0);
+  const overtimeMultiplier = parseFloat(attendanceData.overtimeMultiplier) || 1.5;
 
-  // Payable days = present days + paid leave days
-  const payableDays = Math.min(workingDays, Math.max(0, presentDays + paidLeaveDays));
-  const attendanceRatio = workingDays > 0 ? (payableDays / workingDays) : 1;
-  const absentDays = Math.max(0, workingDays - payableDays - unpaidLeaveDays);
+  // Rate calculations
+  const dailyRate = Math.round((wage / workingDays) * 100) / 100;
+  const standardHourlyRate = Math.round((dailyRate / standardDailyHours) * 100) / 100;
+  const overtimeHourlyRate = Math.round((standardHourlyRate * overtimeMultiplier) * 100) / 100;
 
-  // Hourly wage (assuming standard 8-hour workday)
-  const dailyRate = workingDays > 0 ? (wage / workingDays) : 0;
-  const hourlyRate = dailyRate / 8;
-  const overtimePay = Math.round(overtimeHours * hourlyRate * 1.5 * 100) / 100;
+  // Overtime and Unpaid Leave Amounts
+  const overtimeAmount = Math.round(overtimeHours * overtimeHourlyRate * 100) / 100;
+  const unpaidLeaveAmount = Math.round(unpaidLeaveDays * dailyRate * 100) / 100;
 
-  // Context dictionary storing values of computed rules
+  // Working factor for pro-rata adjustment if unpaid leaves exist
+  const effectiveDays = Math.min(workingDays, Math.max(0, presentDays + paidLeaveDays));
+  const attendanceRatio = workingDays > 0 ? (effectiveDays / workingDays) : 1;
+
+  // Context dictionary storing values of computed rules and runtime telemetry
   const context = {
     WAGE: wage,
     WORKING_DAYS: workingDays,
     PRESENT_DAYS: presentDays,
     PAID_LEAVE: paidLeaveDays,
     UNPAID_LEAVE: unpaidLeaveDays,
-    ABSENT_DAYS: absentDays,
-    PAYABLE_DAYS: payableDays,
-    ATTENDANCE_RATIO: attendanceRatio,
     OVERTIME_HOURS: overtimeHours,
-    HOURLY_RATE: hourlyRate,
-    OVERTIME_PAY: overtimePay,
+    OVERTIME_PAY: overtimeAmount,
+    LEAVE_DEDUCTION: unpaidLeaveAmount,
+    DAILY_RATE: dailyRate,
+    HOURLY_RATE: standardHourlyRate,
+    OVERTIME_RATE: overtimeHourlyRate,
+    ATTENDANCE_RATIO: attendanceRatio,
     GROSS: 0,
     TOTAL_DEDUCTIONS: 0
   };
@@ -109,10 +118,16 @@ function computeSalary(contract, rules, attendanceData = {}) {
 
   // Sort rules strictly by sequence
   const sortedRules = [...rules].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-  let overtimeRuleProcessed = false;
+
+  let hasExplicitOvertimeRule = false;
+  let hasExplicitUnpaidLeaveRule = false;
 
   for (const rule of sortedRules) {
     if (rule.is_active === false) continue;
+
+    const ruleCode = (rule.code || '').toUpperCase();
+    if (ruleCode === 'OVERTIME') hasExplicitOvertimeRule = true;
+    if (['UNPAID_LEAVE', 'LOP', 'LEAVE_DEDUCTION'].includes(ruleCode)) hasExplicitUnpaidLeaveRule = true;
 
     // Check condition
     if (rule.condition && !evaluateCondition(rule.condition, context)) {
@@ -133,25 +148,11 @@ function computeSalary(contract, rules, attendanceData = {}) {
       amount = evaluateExpression(rule.formula, context);
     }
 
-    // Apply pro-rata factor for BASIC and ALLOWANCE rules if payable days < working days
-    // (Unless the rule code explicitly represents overtime)
-    const rCode = (rule.code || '').toUpperCase();
-    if (['BASIC', 'ALLOWANCE'].includes(rule.category) && attendanceRatio < 1 && rCode !== 'OT' && rCode !== 'OVERTIME') {
-      amount = amount * attendanceRatio;
-    }
-
     // Round to 2 decimals
     amount = Math.round(amount * 100) / 100;
 
-    if (rCode === 'OT' || rCode === 'OVERTIME') {
-      overtimeRuleProcessed = true;
-      if (overtimeHours > 0 && amount === 0) {
-        amount = overtimePay;
-      }
-    }
-
     // Store in context for subsequent rules
-    context[rCode] = amount;
+    context[ruleCode] = amount;
 
     // Categorize
     if (rule.category === 'BASIC' || rule.category === 'ALLOWANCE') {
@@ -174,24 +175,41 @@ function computeSalary(contract, rules, attendanceData = {}) {
     });
   }
 
-  // If overtime hours were logged and no explicit OT rule existed in the structure, auto-add Overtime Pay line
-  if (overtimeHours > 0 && !overtimeRuleProcessed && overtimePay > 0) {
-    grossSalary += overtimePay;
-    context.GROSS = grossSalary;
-    context.OT = overtimePay;
+  // If there are overtime / extra hours and no manual overtime rule in structure, add as allowance
+  if (overtimeHours > 0 && !hasExplicitOvertimeRule && overtimeAmount > 0) {
     lines.push({
       salaryRuleId: null,
-      ruleCode: 'OT',
-      ruleName: `Overtime Allowance (${overtimeHours} hrs @ 1.5x)`,
+      ruleCode: 'OVERTIME',
+      ruleName: `Overtime / Extra Hours Pay (${overtimeHours} hrs @ ₹${overtimeHourlyRate.toFixed(2)}/hr)`,
       category: 'ALLOWANCE',
-      sequence: 45,
-      computationType: 'FORMULA',
-      rate: 150,
-      amount: overtimePay
+      sequence: 85,
+      computationType: 'HOURLY',
+      rate: overtimeMultiplier,
+      amount: overtimeAmount
     });
+    grossSalary += overtimeAmount;
+    context.GROSS = grossSalary;
+    context.OVERTIME = overtimeAmount;
   }
 
-  // Net salary calculation
+  // If there are unpaid leaves / LOP and no manual deduction rule, add as deduction line
+  if (unpaidLeaveDays > 0 && !hasExplicitUnpaidLeaveRule && unpaidLeaveAmount > 0) {
+    lines.push({
+      salaryRuleId: null,
+      ruleCode: 'UNPAID_LEAVE',
+      ruleName: `Unpaid Leave / LOP Deduction (${unpaidLeaveDays} days @ ₹${dailyRate.toFixed(2)}/day)`,
+      category: 'DEDUCTION',
+      sequence: 95,
+      computationType: 'DAILY',
+      rate: dailyRate,
+      amount: unpaidLeaveAmount
+    });
+    totalDeductions += unpaidLeaveAmount;
+    context.TOTAL_DEDUCTIONS = totalDeductions;
+    context.UNPAID_LEAVE = unpaidLeaveAmount;
+  }
+
+  // Final Net salary calculation
   grossSalary = Math.round(grossSalary * 100) / 100;
   totalDeductions = Math.round(totalDeductions * 100) / 100;
   const netSalary = Math.max(0, Math.round((grossSalary - totalDeductions) * 100) / 100);
@@ -205,10 +223,13 @@ function computeSalary(contract, rules, attendanceData = {}) {
     presentDays,
     paidLeaveDays,
     unpaidLeaveDays,
-    absentDays,
     overtimeHours,
-    overtimePay,
-    payableDays,
+    overtimeAmount,
+    unpaidLeaveAmount,
+    dailyRate,
+    standardHourlyRate,
+    overtimeHourlyRate,
+    payableDays: effectiveDays,
     attendanceRatio,
     wage
   };

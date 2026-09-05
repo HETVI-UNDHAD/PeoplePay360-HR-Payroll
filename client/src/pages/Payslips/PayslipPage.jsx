@@ -242,10 +242,10 @@ export function PayslipPage({ preSelectedPayslipId }) {
                 <p><strong className="text-slate-500 font-medium">Designation:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.designation_name || 'N/A'}</span></p>
               </div>
               <div className="space-y-1.5">
-                <p><strong className="text-slate-500 font-medium">Contract Type:</strong> <span className="font-semibold text-slate-900">{selectedPayslipData.payslip.contract_type || 'N/A'}</span></p>
-                <p><strong className="text-slate-500 font-medium">Contract Base Wage:</strong> <span className="font-bold text-slate-900">${parseFloat(selectedPayslipData.payslip.wage || selectedPayslipData.payslip.base_wage || 0).toLocaleString()} / mo</span></p>
+                <p><strong className="text-slate-500 font-medium">Contract Type:</strong> <span className="font-semibold text-slate-900">{selectedPayslipData.payslip.contract_type || 'Permanent'}</span></p>
+                <p><strong className="text-slate-500 font-medium">Contract Base Wage:</strong> <span className="font-bold text-slate-900 font-mono">₹{parseFloat(selectedPayslipData.payslip.wage || selectedPayslipData.payslip.base_wage || 0).toLocaleString()} / mo</span></p>
                 <p><strong className="text-slate-500 font-medium">Salary Structure:</strong> <span className="text-slate-800 font-medium">{selectedPayslipData.payslip.salary_structure_name || 'Standard Structure'}</span></p>
-                <p><strong className="text-slate-500 font-medium">Attendance:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.present_days} / {selectedPayslipData.payslip.working_days} Days</span></p>
+                <p><strong className="text-slate-500 font-medium">Attendance:</strong> <span className="text-slate-800 font-medium">{selectedPayslipData.payslip.present_days} Present / {selectedPayslipData.payslip.working_days} Days {parseFloat(selectedPayslipData.payslip.unpaid_leave_days || 0) > 0 ? `(${selectedPayslipData.payslip.unpaid_leave_days}d LOP)` : ''}</span></p>
               </div>
               <div className="space-y-1.5">
                 <p><strong className="text-slate-500 font-medium">Bank Name:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.bank_name || 'Direct Deposit'}</span></p>
@@ -262,19 +262,19 @@ export function PayslipPage({ preSelectedPayslipId }) {
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <div className="bg-slate-100 px-4 py-2 font-bold text-slate-800 border-b border-slate-200 flex justify-between">
                   <span>Earnings & Allowances</span>
-                  <span>Amount ($)</span>
+                  <span>Amount (₹)</span>
                 </div>
                 <div className="divide-y divide-slate-100 p-2">
                   {selectedPayslipData.lines.filter(l => ['BASIC', 'ALLOWANCE'].includes(l.category)).map((line, idx) => (
                     <div key={idx} className="flex justify-between py-1.5 px-2 text-slate-700">
                       <span>{line.rule_name}</span>
-                      <span className="font-semibold text-slate-900">${parseFloat(line.amount).toLocaleString()}</span>
+                      <span className="font-semibold text-slate-900 font-mono">₹{parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
                 </div>
                 <div className="bg-slate-50 px-4 py-2 font-bold text-slate-900 border-t border-slate-200 flex justify-between mt-2">
                   <span>Total Earnings (Gross)</span>
-                  <span className="text-sm font-bold text-slate-900">${parseFloat(selectedPayslipData.payslip.gross_salary).toLocaleString()}</span>
+                  <span className="text-sm font-bold text-slate-900 font-mono">₹{parseFloat(selectedPayslipData.payslip.gross_salary).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
@@ -282,19 +282,19 @@ export function PayslipPage({ preSelectedPayslipId }) {
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <div className="bg-slate-100 px-4 py-2 font-bold text-slate-800 border-b border-slate-200 flex justify-between">
                   <span>Deductions & Taxes</span>
-                  <span>Amount ($)</span>
+                  <span>Amount (₹)</span>
                 </div>
                 <div className="divide-y divide-slate-100 p-2">
                   {selectedPayslipData.lines.filter(l => l.category === 'DEDUCTION').map((line, idx) => (
                     <div key={idx} className="flex justify-between py-1.5 px-2 text-slate-700">
                       <span>{line.rule_name}</span>
-                      <span className="font-semibold text-rose-600">-${parseFloat(line.amount).toLocaleString()}</span>
+                      <span className="font-semibold text-rose-600 font-mono">-₹{parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
                 </div>
                 <div className="bg-slate-50 px-4 py-2 font-bold text-slate-900 border-t border-slate-200 flex justify-between mt-2">
                   <span>Total Deductions</span>
-                  <span className="text-sm font-bold text-rose-600">-${parseFloat(selectedPayslipData.payslip.total_deductions).toLocaleString()}</span>
+                  <span className="text-sm font-bold text-rose-600 font-mono">-₹{parseFloat(selectedPayslipData.payslip.total_deductions).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>
@@ -306,10 +306,10 @@ export function PayslipPage({ preSelectedPayslipId }) {
                 <p className="text-xs text-slate-300 mt-0.5">Disbursed via direct electronic fund transfer</p>
               </div>
               <div className="text-right">
-                <span className="text-3xl font-black text-emerald-400">
-                  ${parseFloat(selectedPayslipData.payslip.net_salary).toLocaleString()}
+                <span className="text-3xl font-black text-emerald-400 font-mono">
+                  ₹{parseFloat(selectedPayslipData.payslip.net_salary).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-                <p className="text-[10px] text-slate-300">USD</p>
+                <p className="text-[10px] text-slate-300">INR</p>
               </div>
             </div>
 
