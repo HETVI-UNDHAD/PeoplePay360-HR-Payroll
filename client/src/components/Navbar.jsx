@@ -62,7 +62,7 @@ export function Navbar({ onOpenPunchModal }) {
   const demoRoles = [
     { code: 'ADMIN', name: 'Admin', desc: 'Full System, Master Config & Rules', icon: ShieldCheck, color: 'text-purple-400 bg-purple-500/10 border-purple-500/30' },
     { code: 'HR_MANAGER', name: 'HR Manager', desc: 'Employees, Contracts & Leave Approvals', icon: Users, color: 'text-blue-400 bg-blue-500/10 border-blue-500/30' },
-    { code: 'PAYROLL_ADMIN', name: 'Payroll Admin', desc: 'Structures, Compute & Mark Paid', icon: Calculator, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
+    { code: 'PAYROLL_ADMIN', name: 'HR Payroll Manager', desc: 'Full HR + Salary Calculation Rules, Structures & Payroll Validation', icon: Calculator, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
     { code: 'PAYROLL_USER', name: 'HR Payroll User', desc: 'HR Operations + Pay Runs, Payslips & Read-only Structures', icon: UserCheck, color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
     { code: 'EMPLOYEE', name: 'Employee', desc: 'Self-Service: Punch, Leave, Payslip', icon: User, color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30' },
   ];

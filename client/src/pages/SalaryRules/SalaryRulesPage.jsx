@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   AlertCircle,
   HelpCircle,
-  Edit
+  Edit,
+  Trash2
 } from 'lucide-react';
 
 export function SalaryRulesPage({ selectedStructureId }) {
@@ -167,6 +168,19 @@ export function SalaryRulesPage({ selectedStructureId }) {
     }
   };
 
+  const handleDeleteRule = async (ruleId, ruleName) => {
+    if (!window.confirm(`Are you sure you want to delete salary rule "${ruleName}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      const res = await api.deleteSalaryRule(ruleId);
+      showToast(res.message || 'Salary rule deleted successfully', 'success');
+      fetchStructureDetails();
+    } catch (err) {
+      showToast(err.message || 'Failed to delete salary rule', 'error');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -260,13 +274,22 @@ export function SalaryRulesPage({ selectedStructureId }) {
                     </div>
 
                     {(isPayrollAdmin || isAdmin) && (
-                      <button
-                        onClick={() => handleOpenEditRule(rule)}
-                        className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-brand-600 transition-all"
-                        title="Edit Rule"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenEditRule(rule)}
+                          className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-brand-600 transition-all"
+                          title="Edit Rule"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRule(rule.id, rule.name)}
+                          className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-rose-400 hover:bg-rose-500/20 transition-all"
+                          title="Delete Rule"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}

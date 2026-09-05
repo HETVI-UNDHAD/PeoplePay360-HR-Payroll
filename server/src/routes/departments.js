@@ -29,8 +29,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/departments - Create department (ADMIN, HR_MANAGER)
-router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+// POST /api/departments - Create department (ADMIN, HR_MANAGER, PAYROLL_ADMIN)
+router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN), async (req, res) => {
   try {
     const { name, code } = req.body;
     if (!name) return res.status(400).json({ success: false, message: 'Department name is required' });
@@ -51,7 +51,7 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
 });
 
 // PUT /api/departments/:id - Update department
-router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, code, is_active } = req.body;
@@ -88,7 +88,7 @@ router.get('/designations/all', async (req, res) => {
 });
 
 // POST /api/departments/designations - Create designation
-router.post('/designations', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+router.post('/designations', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN), async (req, res) => {
   try {
     const { department_id, name, code, description } = req.body;
     if (!name || !department_id) {

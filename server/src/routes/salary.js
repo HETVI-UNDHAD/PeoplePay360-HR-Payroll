@@ -78,6 +78,56 @@ router.post('/structures', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN), async (r
   }
 });
 
+// PUT /api/salary/structures/:id - Update Salary Structure (PAYROLL_ADMIN, ADMIN)
+router.put('/structures/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, code, type, description, is_active } = req.body;
+
+    await query(
+      `UPDATE salary_structures SET
+        name = COALESCE($1, name),
+        code = COALESCE($2, code),
+        type = COALESCE($3, type),
+        description = COALESCE($4, description),
+        is_active = COALESCE($5, is_active),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6`,
+      [name || null, code ? code.toUpperCase() : null, type || null, description || null, is_active !== undefined ? is_active : null, id]
+    );
+
+    await logAudit(req.user.id, 'UPDATE_SALARY_STRUCTURE', 'salary_structures', id, { name, code }, req);
+    res.json({ success: true, message: 'Salary structure updated successfully' });
+  } catch (err) {
+    console.error('Update salary structure error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update salary structure' });
+  }
+});
+
+// DELETE /api/salary/structures/:id - Delete Salary Structure (PAYROLL_ADMIN, ADMIN)
+router.delete('/structures/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const contractsUsing = await query('SELECT COUNT(*) FROM contracts WHERE salary_structure_id = $1 AND status = \'ACTIVE\'', [id]);
+    if (parseInt(contractsUsing.rows[0].count, 10) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete structure: ${contractsUsing.rows[0].count} active employee contract(s) are currently assigned to it.`
+      });
+    }
+
+    await query('DELETE FROM salary_rules WHERE salary_structure_id = $1', [id]);
+    await query('DELETE FROM salary_structures WHERE id = $1', [id]);
+
+    await logAudit(req.user.id, 'DELETE_SALARY_STRUCTURE', 'salary_structures', id, {}, req);
+    res.json({ success: true, message: 'Salary structure and associated rules deleted successfully' });
+  } catch (err) {
+    console.error('Delete salary structure error:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete salary structure' });
+  }
+});
+
 // POST /api/salary/rules - Create Salary Rule (PAYROLL_ADMIN, ADMIN)
 router.post('/rules', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN), async (req, res) => {
   try {
@@ -150,6 +200,19 @@ router.put('/rules/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN), async (req
   } catch (err) {
     console.error('Update salary rule error:', err);
     res.status(500).json({ success: false, message: 'Failed to update salary rule' });
+  }
+});
+
+// DELETE /api/salary/rules/:id - Delete Salary Rule (PAYROLL_ADMIN, ADMIN)
+router.delete('/rules/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN), async (req, res) => {
+  try {
+    const { id } = req.params;
+    await query('DELETE FROM salary_rules WHERE id = $1', [id]);
+    await logAudit(req.user.id, 'DELETE_SALARY_RULE', 'salary_rules', id, {}, req);
+    res.json({ success: true, message: 'Salary rule deleted successfully' });
+  } catch (err) {
+    console.error('Delete salary rule error:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete salary rule' });
   }
 });
 

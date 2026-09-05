@@ -19,8 +19,8 @@ router.get('/types', async (req, res) => {
   }
 });
 
-// POST /api/timeoff/types - Create time off type (ADMIN, HR_MANAGER, PAYROLL_USER)
-router.post('/types', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
+// POST /api/timeoff/types - Create time off type (ADMIN, HR_MANAGER, PAYROLL_ADMIN, PAYROLL_USER)
+router.post('/types', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { name, code, is_allocation_required, is_approval_required, is_paid, default_days_per_year, color_code } = req.body;
     if (!name || !code) return res.status(400).json({ success: false, message: 'Name and code are required' });
@@ -46,8 +46,8 @@ router.post('/types', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USE
   }
 });
 
-// PUT /api/timeoff/types/:id - Update time off type (ADMIN, HR_MANAGER, PAYROLL_USER)
-router.put('/types/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
+// PUT /api/timeoff/types/:id - Update time off type (ADMIN, HR_MANAGER, PAYROLL_ADMIN, PAYROLL_USER)
+router.put('/types/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, is_allocation_required, is_approval_required, is_paid, default_days_per_year, color_code, is_active } = req.body;
@@ -109,8 +109,8 @@ router.get('/allocations', async (req, res) => {
   }
 });
 
-// POST /api/timeoff/allocations - Allocate leaves (ADMIN, HR_MANAGER, PAYROLL_USER)
-router.post('/allocations', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
+// POST /api/timeoff/allocations - Allocate leaves (ADMIN, HR_MANAGER, PAYROLL_ADMIN, PAYROLL_USER)
+router.post('/allocations', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { employee_id, time_off_type_id, year, allocated_days } = req.body;
     if (!employee_id || !time_off_type_id || allocated_days === undefined) {
@@ -262,8 +262,8 @@ router.post('/requests', async (req, res) => {
   }
 });
 
-// POST /api/timeoff/requests/:id/action - Approve or Reject Request (ADMIN, HR_MANAGER, PAYROLL_USER)
-router.post('/requests/:id/action', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
+// POST /api/timeoff/requests/:id/action - Approve or Reject Request (ADMIN, HR_MANAGER, PAYROLL_ADMIN, PAYROLL_USER)
+router.post('/requests/:id/action', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { id } = req.params;
     const { action, comment } = req.body; // action: 'APPROVE' or 'REJECT'

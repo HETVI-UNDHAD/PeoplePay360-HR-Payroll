@@ -48,8 +48,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/schedules - Create schedule (ADMIN, HR_MANAGER, PAYROLL_USER)
-router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
+// POST /api/schedules - Create schedule (ADMIN, HR_MANAGER, PAYROLL_ADMIN, PAYROLL_USER)
+router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { name, timezone, weekly_working_hours, working_days, start_time, end_time, break_hours } = req.body;
     if (!name) return res.status(400).json({ success: false, message: 'Schedule name is required' });
@@ -81,8 +81,8 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), a
   }
 });
 
-// PUT /api/schedules/:id - Update schedule (ADMIN, HR_MANAGER, PAYROLL_USER)
-router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
+// PUT /api/schedules/:id - Update schedule (ADMIN, HR_MANAGER, PAYROLL_ADMIN, PAYROLL_USER)
+router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, timezone, weekly_working_hours, working_days, start_time, end_time, break_hours, is_active } = req.body;

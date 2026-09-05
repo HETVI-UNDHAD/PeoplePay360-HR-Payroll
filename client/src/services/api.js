@@ -105,8 +105,11 @@ export const api = {
   getSalaryStructures: () => request('/salary/structures'),
   getSalaryStructureDetails: (id) => request(`/salary/structures/${id}`),
   createSalaryStructure: (data) => request('/salary/structures', { method: 'POST', body: JSON.stringify(data) }),
+  updateSalaryStructure: (id, data) => request(`/salary/structures/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSalaryStructure: (id) => request(`/salary/structures/${id}`, { method: 'DELETE' }),
   createSalaryRule: (data) => request('/salary/rules', { method: 'POST', body: JSON.stringify(data) }),
   updateSalaryRule: (id, data) => request(`/salary/rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSalaryRule: (id) => request(`/salary/rules/${id}`, { method: 'DELETE' }),
   testSalaryEngine: (data) => request('/salary/test-engine', { method: 'POST', body: JSON.stringify(data) }),
 
   // Pay Runs (Payroll Lifecycle: Draft -> Compute -> Validate -> Mark Paid)

@@ -99,14 +99,56 @@ router.post('/demo-switch', async (req, res) => {
       [roleCode]
     );
 
-    if (targetUser.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: `No active user found with role "${roleCode}". Please create a user with this role via Admin → Users & Roles first.`
-      });
-    }
+    let user = targetUser.rows[0];
 
-    const user = targetUser.rows[0];
+    if (!user) {
+      const roleRes = await query('SELECT * FROM roles WHERE code = $1', [roleCode]);
+      if (roleRes.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: `Role "${roleCode}" is not a valid system role.`
+        });
+      }
+
+      const roleRecord = roleRes.rows[0];
+      const newUserId = uuidv4();
+      const demoEmail = `${roleCode.toLowerCase().replace(/_/g, '.')}@peoplepay360.com`;
+      const hash = '$2a$10$sTnBq5myc/cs.WqgCwukleufj/UfywI6MdaBufbMPwkso/Wgarjoa'; // password123
+      const nameParts = roleRecord.name.split(' ');
+      const firstName = nameParts[0] || 'Demo';
+      const lastName = nameParts.slice(1).join(' ') || 'User';
+
+      await query(
+        `INSERT INTO users (id, email, password_hash, first_name, last_name, is_active)
+         VALUES ($1, $2, $3, $4, $5, TRUE)
+         ON CONFLICT (email) DO UPDATE SET is_active = TRUE`,
+        [newUserId, demoEmail, hash, firstName, lastName]
+      );
+
+      const createdUser = await query('SELECT * FROM users WHERE email = $1', [demoEmail]);
+      const actualUserId = createdUser.rows[0].id;
+
+      await query(
+        `INSERT INTO user_roles (id, user_id, role_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [uuidv4(), actualUserId, roleRecord.id]
+      );
+
+      const refetched = await query(
+        `SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.is_active,
+                r.code as role_code, r.name as role_name,
+                e.id as employee_id, e.employee_code, e.department_id, e.designation_id
+         FROM users u
+         JOIN user_roles ur ON ur.user_id = u.id
+         JOIN roles r ON r.id = ur.role_id
+         LEFT JOIN employees e ON e.user_id = u.id
+         WHERE u.id = $1`,
+        [actualUserId]
+      );
+
+      user = refetched.rows[0];
+    }
     const token = generateToken(user);
     await logAudit(user.id, 'DEMO_ROLE_SWITCH', 'users', user.id, { switchedToRole: roleCode }, req);
 

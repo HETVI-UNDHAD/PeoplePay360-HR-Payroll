@@ -186,8 +186,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/employees - Create Employee (ADMIN, HR_MANAGER, PAYROLL_USER)
-router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
+// POST /api/employees - Create Employee (ADMIN, HR_MANAGER, PAYROLL_ADMIN, PAYROLL_USER)
+router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const {
       first_name,
@@ -336,7 +336,7 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), a
 });
 
 // PUT /api/employees/:id - Update Employee & Contract & Role
-router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
+router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -454,8 +454,8 @@ router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER),
   }
 });
 
-// DELETE /api/employees/:id - Delete Employee (ADMIN, HR_MANAGER, PAYROLL_USER)
-router.delete('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
+// DELETE /api/employees/:id - Delete Employee (ADMIN, HR_MANAGER, PAYROLL_ADMIN, PAYROLL_USER)
+router.delete('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { id } = req.params;
     const empRes = await query('SELECT e.*, u.email as user_email FROM employees e LEFT JOIN users u ON u.id = e.user_id WHERE e.id = $1', [id]);

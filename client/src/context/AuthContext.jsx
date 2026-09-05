@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
   const role = user?.role || 'EMPLOYEE';
   const roleHelpers = {
     isAdmin: role === 'ADMIN',
-    isHR: ['ADMIN', 'HR_MANAGER', 'PAYROLL_USER'].includes(role),
+    isHR: ['ADMIN', 'HR_MANAGER', 'PAYROLL_ADMIN', 'PAYROLL_USER'].includes(role),
     isPayrollAdmin: ['ADMIN', 'PAYROLL_ADMIN'].includes(role),
     isPayrollUser: role === 'PAYROLL_USER',
     isPayrollTeam: ['ADMIN', 'PAYROLL_ADMIN', 'PAYROLL_USER'].includes(role),
