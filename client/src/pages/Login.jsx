@@ -14,7 +14,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
-
+// Login page with 1-click role switcher for hackathon evaluation
 export function Login() {
   const { login, switchDemoRole, showToast } = useAuth();
   const { isDark, toggleTheme } = useTheme();
