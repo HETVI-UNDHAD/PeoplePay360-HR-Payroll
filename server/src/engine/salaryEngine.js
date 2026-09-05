@@ -1,0 +1,178 @@
+/**
+ * PeoplePay360 - Dynamic Sequential Salary Rule Engine
+ * Evaluates Fixed, Percentage, and Custom Formula Rules in sequence order.
+ */
+
+// Safely evaluate simple math expressions using context variables
+function evaluateExpression(expression, context) {
+  if (!expression || typeof expression !== 'string') return 0;
+
+  try {
+    // Replace variable identifiers with their values from context
+    let sanitized = expression;
+    const sortedKeys = Object.keys(context).sort((a, b) => b.length - a.length);
+
+    for (const key of sortedKeys) {
+      const val = Number(context[key]) || 0;
+      const regex = new RegExp(`\\b${key}\\b`, 'g');
+      sanitized = sanitized.replace(regex, `(${val})`);
+    }
+
+    // Only allow numbers, math operators, parentheses, decimal points, and spaces
+    if (!/^[0-9+\-*/().\s]+$/.test(sanitized)) {
+      console.warn('Unsafe characters in formula:', expression, 'Sanitized:', sanitized);
+      return 0;
+    }
+
+    // Evaluate mathematical expression
+    const func = new Function(`return (${sanitized});`);
+    const result = func();
+    return Number.isFinite(result) ? Math.max(0, Math.round(result * 100) / 100) : 0;
+  } catch (err) {
+    console.error(`Error evaluating formula: "${expression}"`, err.message);
+    return 0;
+  }
+}
+
+// Safely evaluate boolean condition
+function evaluateCondition(conditionStr, context) {
+  if (!conditionStr || !conditionStr.trim()) return true;
+
+  try {
+    let sanitized = conditionStr;
+    const sortedKeys = Object.keys(context).sort((a, b) => b.length - a.length);
+
+    for (const key of sortedKeys) {
+      const val = Number(context[key]) || 0;
+      const regex = new RegExp(`\\b${key}\\b`, 'g');
+      sanitized = sanitized.replace(regex, `(${val})`);
+    }
+
+    // Only allow comparison operators, numbers, and basic logic
+    if (!/^[0-9+\-*/().\s><=!&|]+$/.test(sanitized)) {
+      return true;
+    }
+
+    const func = new Function(`return Boolean(${sanitized});`);
+    return Boolean(func());
+  } catch (err) {
+    console.warn(`Condition evaluation warning: "${conditionStr}"`, err.message);
+    return true;
+  }
+}
+
+/**
+ * Compute Salary for an Employee
+ * @param {Object} contract - Employee contract record (contains wage)
+ * @param {Array} rules - Array of salary_rules ordered by sequence ASC
+ * @param {Object} attendanceData - { workingDays, presentDays, paidLeaveDays, unpaidLeaveDays }
+ * @returns {Object} { lines, grossSalary, totalDeductions, netSalary }
+ */
+function computeSalary(contract, rules, attendanceData = {}) {
+  const wage = parseFloat(contract.wage) || 0;
+  const workingDays = parseFloat(attendanceData.workingDays) || 22;
+  const presentDays = parseFloat(attendanceData.presentDays !== undefined ? attendanceData.presentDays : workingDays);
+  const paidLeaveDays = parseFloat(attendanceData.paidLeaveDays) || 0;
+  const unpaidLeaveDays = parseFloat(attendanceData.unpaidLeaveDays) || 0;
+
+  // Working factor for pro-rata adjustment if unpaid leaves exist
+  const effectiveDays = Math.min(workingDays, Math.max(0, presentDays + paidLeaveDays));
+  const attendanceRatio = workingDays > 0 ? (effectiveDays / workingDays) : 1;
+
+  // Context dictionary storing values of computed rules
+  const context = {
+    WAGE: wage,
+    WORKING_DAYS: workingDays,
+    PRESENT_DAYS: presentDays,
+    PAID_LEAVE: paidLeaveDays,
+    UNPAID_LEAVE: unpaidLeaveDays,
+    ATTENDANCE_RATIO: attendanceRatio,
+    GROSS: 0,
+    TOTAL_DEDUCTIONS: 0
+  };
+
+  const lines = [];
+  let grossSalary = 0;
+  let totalDeductions = 0;
+
+  // Sort rules strictly by sequence
+  const sortedRules = [...rules].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+
+  for (const rule of sortedRules) {
+    if (rule.is_active === false) continue;
+
+    // Check condition
+    if (rule.condition && !evaluateCondition(rule.condition, context)) {
+      continue;
+    }
+
+    let amount = 0;
+    const computationType = (rule.computation_type || 'FIXED').toUpperCase();
+    const rate = parseFloat(rule.percentage) || parseFloat(rule.rate) || 0;
+
+    if (computationType === 'FIXED') {
+      amount = parseFloat(rule.fixed_amount) || 0;
+    } else if (computationType === 'PERCENTAGE') {
+      const baseCode = (rule.base_code || 'BASIC').toUpperCase();
+      const baseValue = baseCode === 'WAGE' ? wage : (context[baseCode] || 0);
+      amount = (rate / 100) * baseValue;
+    } else if (computationType === 'FORMULA') {
+      amount = evaluateExpression(rule.formula, context);
+    }
+
+    // Apply unpaid leave deduction factor to earnings if wage pro-rata applies
+    if (['BASIC', 'ALLOWANCE'].includes(rule.category) && unpaidLeaveDays > 0 && attendanceRatio < 1) {
+      amount = amount * attendanceRatio;
+    }
+
+    // Round to 2 decimals
+    amount = Math.round(amount * 100) / 100;
+
+    // Store in context for subsequent rules
+    const ruleCode = (rule.code || '').toUpperCase();
+    context[ruleCode] = amount;
+
+    // Categorize
+    if (rule.category === 'BASIC' || rule.category === 'ALLOWANCE') {
+      grossSalary += amount;
+      context.GROSS = grossSalary;
+    } else if (rule.category === 'DEDUCTION') {
+      totalDeductions += amount;
+      context.TOTAL_DEDUCTIONS = totalDeductions;
+    }
+
+    lines.push({
+      salaryRuleId: rule.id || null,
+      ruleCode: rule.code,
+      ruleName: rule.name,
+      category: rule.category,
+      sequence: rule.sequence || 10,
+      computationType: rule.computation_type,
+      rate: rate,
+      amount: amount
+    });
+  }
+
+  // Net salary calculation
+  grossSalary = Math.round(grossSalary * 100) / 100;
+  totalDeductions = Math.round(totalDeductions * 100) / 100;
+  const netSalary = Math.max(0, Math.round((grossSalary - totalDeductions) * 100) / 100);
+
+  return {
+    lines,
+    grossSalary,
+    totalDeductions,
+    netSalary,
+    workingDays,
+    presentDays,
+    paidLeaveDays,
+    unpaidLeaveDays,
+    wage
+  };
+}
+
+module.exports = {
+  computeSalary,
+  evaluateExpression,
+  evaluateCondition
+};

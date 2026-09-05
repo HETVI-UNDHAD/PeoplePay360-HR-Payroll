@@ -1,0 +1,16 @@
+{
+  "name": "peoplepay360-hr-payroll-root",
+  "version": "1.0.0",
+  "description": "PeoplePay360 - Enterprise HR & Payroll Management System (Root Workspace)",
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "server": "npm start --prefix server",
+    "client": "npm run dev --prefix client",
+    "dev": "npm run server & npm run client",
+    "db:init": "npm run db:init --prefix server",
+    "build": "npm run build --prefix client"
+  },
+  "keywords": ["hr", "payroll", "react", "express", "postgresql"],
+  "author": "PeoplePay360 Team",
+  "license": "MIT"
+}
