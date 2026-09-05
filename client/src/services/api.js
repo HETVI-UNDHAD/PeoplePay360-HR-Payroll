@@ -116,6 +116,7 @@ export const api = {
   },
   getPayRunDetails: (id) => request(`/payroll/payruns/${id}`),
   createPayRun: (data) => request('/payroll/payruns', { method: 'POST', body: JSON.stringify(data) }),
+  updatePayRun: (id, data) => request(`/payroll/payruns/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   computePayRun: (id) => request(`/payroll/payruns/${id}/compute`, { method: 'POST' }),
   validatePayRun: (id) => request(`/payroll/payruns/${id}/validate`, { method: 'POST' }),
   markPayRunPaid: (id, paymentData = {}) => request(`/payroll/payruns/${id}/mark-paid`, {
@@ -129,6 +130,8 @@ export const api = {
     return request(`/payslips${qs ? `?${qs}` : ''}`);
   },
   getPayslipDetails: (id) => request(`/payslips/${id}`),
+  createPayslip: (data) => request('/payslips', { method: 'POST', body: JSON.stringify(data) }),
+  updatePayslip: (id, data) => request(`/payslips/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Payments
   getPayments: (params = {}) => {

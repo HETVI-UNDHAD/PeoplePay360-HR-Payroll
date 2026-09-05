@@ -55,8 +55,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/contracts - Create contract (HR_MANAGER, ADMIN)
-router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+// POST /api/contracts - Create contract (ADMIN, HR_MANAGER, PAYROLL_USER)
+router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const {
       employee_id,
@@ -106,8 +106,8 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
   }
 });
 
-// PUT /api/contracts/:id - Update contract
-router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+// PUT /api/contracts/:id - Update contract (ADMIN, HR_MANAGER, PAYROLL_USER)
+router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { id } = req.params;
     const {

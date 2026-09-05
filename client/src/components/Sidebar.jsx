@@ -78,8 +78,8 @@ export function Sidebar({ currentTab, setCurrentTab }) {
       children: [
         { id: 'payruns', label: 'Pay Runs', icon: Calculator, show: isPayrollTeam },
         { id: 'payslips', label: (isPayrollTeam || isAdmin) ? 'Payslips' : 'My Payslips', icon: Receipt, show: true },
-        { id: 'salary-structures', label: 'Salary Structures', icon: FileSpreadsheet, show: isPayrollAdmin || isAdmin },
-        { id: 'salary-rules', label: 'Salary Rules & Engine', icon: Sliders, show: isPayrollAdmin || isAdmin },
+        { id: 'salary-structures', label: 'Salary Structures', icon: FileSpreadsheet, show: isPayrollTeam || isAdmin },
+        { id: 'salary-rules', label: 'Salary Rules & Engine', icon: Sliders, show: isPayrollTeam || isAdmin },
       ]
     },
     {

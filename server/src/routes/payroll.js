@@ -197,6 +197,41 @@ router.post('/payruns', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROL
   }
 });
 
+// PUT /api/payroll/payruns/:id - Update Pay Run (ADMIN, PAYROLL_ADMIN, PAYROLL_USER)
+router.put('/payruns/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, period_start, period_end, notes } = req.body;
+
+    const prRes = await query('SELECT * FROM payrolls WHERE id = $1', [id]);
+    if (prRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Pay run not found' });
+    }
+
+    const payrun = prRes.rows[0];
+    if (payrun.status === 'PAID') {
+      return res.status(400).json({ success: false, message: 'Cannot update a pay run that has already been PAID' });
+    }
+
+    await query(
+      `UPDATE payrolls SET
+        name = COALESCE($1, name),
+        period_start = COALESCE($2, period_start),
+        period_end = COALESCE($3, period_end),
+        notes = COALESCE($4, notes),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5`,
+      [name || null, period_start || null, period_end || null, notes || null, id]
+    );
+
+    await logAudit(req.user.id, 'UPDATE_PAYROLL', 'payrolls', id, { name }, req);
+    res.json({ success: true, message: 'Pay run updated successfully' });
+  } catch (err) {
+    console.error('Update payrun error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update pay run' });
+  }
+});
+
 // POST /api/payroll/payruns/:id/compute - Compute Payroll Engine
 router.post('/payruns/:id/compute', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
   try {

@@ -260,8 +260,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/attendance/:id - Update / Correct Attendance (HR_MANAGER, ADMIN)
-router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
+// PUT /api/attendance/:id - Update / Correct Attendance (ADMIN, HR_MANAGER, PAYROLL_USER)
+router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.PAYROLL_USER), async (req, res) => {
   try {
     const { id } = req.params;
     const { worked_hours, status, notes } = req.body;

@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/db');
 const { authenticate } = require('../middleware/auth');
 const { checkRole, ROLES } = require('../middleware/rbac');
+const { logAudit } = require('../middleware/audit');
 
 router.use(authenticate);
 
@@ -142,4 +144,89 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// POST /api/payslips - Create a Payslip (ADMIN, PAYROLL_ADMIN, PAYROLL_USER)
+router.post('/', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
+  try {
+    const {
+      payroll_id, employee_id, contract_id, period_start, period_end,
+      working_days, present_days, paid_leave_days, unpaid_leave_days,
+      wage, gross_salary, total_deductions, net_salary, status
+    } = req.body;
+
+    if (!payroll_id || !employee_id || !period_start || !period_end) {
+      return res.status(400).json({ success: false, message: 'Payroll ID, Employee ID, period start, and period end are required.' });
+    }
+
+    const payslipId = uuidv4();
+    const periodStartStr = period_start.substring(0, 7).replace('-', '');
+    const payslipNum = `PAY-${periodStartStr}-${Date.now().toString().slice(-4)}`;
+
+    await query(
+      `INSERT INTO payslips (
+        id, payroll_id, employee_id, contract_id, payslip_number,
+        period_start, period_end, working_days, present_days,
+        paid_leave_days, unpaid_leave_days, wage, gross_salary,
+        total_deductions, net_salary, status, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        payslipId, payroll_id, employee_id, contract_id || null, payslipNum,
+        period_start, period_end, parseFloat(working_days) || 22, parseFloat(present_days) || 22,
+        parseFloat(paid_leave_days) || 0, parseFloat(unpaid_leave_days) || 0,
+        parseFloat(wage) || 0, parseFloat(gross_salary) || 0,
+        parseFloat(total_deductions) || 0, parseFloat(net_salary) || 0,
+        status || 'COMPUTED'
+      ]
+    );
+
+    await logAudit(req.user.id, 'CREATE_PAYSLIP', 'payslips', payslipId, { employee_id, net_salary }, req);
+    res.status(201).json({ success: true, message: 'Payslip created successfully', payslipId, payslipNumber: payslipNum });
+  } catch (err) {
+    console.error('Create payslip error:', err);
+    res.status(500).json({ success: false, message: 'Failed to create payslip' });
+  }
+});
+
+// PUT /api/payslips/:id - Update Payslip adjustments / details (ADMIN, PAYROLL_ADMIN, PAYROLL_USER)
+router.put('/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROLL_USER), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { present_days, unpaid_leave_days, gross_salary, total_deductions, net_salary, status, pdf_url } = req.body;
+
+    const psRes = await query('SELECT * FROM payslips WHERE id = $1', [id]);
+    if (psRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Payslip not found' });
+    }
+
+    await query(
+      `UPDATE payslips SET
+        present_days = COALESCE($1, present_days),
+        unpaid_leave_days = COALESCE($2, unpaid_leave_days),
+        gross_salary = COALESCE($3, gross_salary),
+        total_deductions = COALESCE($4, total_deductions),
+        net_salary = COALESCE($5, net_salary),
+        status = COALESCE($6, status),
+        pdf_url = COALESCE($7, pdf_url),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $8`,
+      [
+        present_days !== undefined ? parseFloat(present_days) : null,
+        unpaid_leave_days !== undefined ? parseFloat(unpaid_leave_days) : null,
+        gross_salary !== undefined ? parseFloat(gross_salary) : null,
+        total_deductions !== undefined ? parseFloat(total_deductions) : null,
+        net_salary !== undefined ? parseFloat(net_salary) : null,
+        status || null,
+        pdf_url || null,
+        id
+      ]
+    );
+
+    await logAudit(req.user.id, 'UPDATE_PAYSLIP', 'payslips', id, { net_salary, status }, req);
+    res.json({ success: true, message: 'Payslip updated successfully' });
+  } catch (err) {
+    console.error('Update payslip error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update payslip' });
+  }
+});
+
 module.exports = router;
+

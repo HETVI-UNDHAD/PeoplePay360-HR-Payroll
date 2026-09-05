@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Receipt,
   FileCheck,
-  AlertCircle
+  AlertCircle,
+  Edit
 } from 'lucide-react';
 
 export function PayRunPage({ onSelectPayslip }) {
@@ -51,6 +52,38 @@ export function PayRunPage({ onSelectPayslip }) {
     reference: `ACH-${Date.now().toString().slice(-6)}`,
     notes: 'Direct deposit monthly salary disbursement'
   });
+
+  // Edit Pay Run Modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    period_start: '',
+    period_end: '',
+    notes: ''
+  });
+
+  const handleOpenEdit = (payrun) => {
+    setEditForm({
+      name: payrun.name || '',
+      period_start: payrun.period_start ? (payrun.period_start instanceof Date ? payrun.period_start.toISOString().split('T')[0] : String(payrun.period_start).split('T')[0]) : '',
+      period_end: payrun.period_end ? (payrun.period_end instanceof Date ? payrun.period_end.toISOString().split('T')[0] : String(payrun.period_end).split('T')[0]) : '',
+      notes: payrun.notes || ''
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.updatePayRun(selectedPayrunId, editForm);
+      showToast(res.message || 'Pay run updated successfully', 'success');
+      setEditModalOpen(false);
+      fetchPayrunDetails(selectedPayrunId);
+      fetchPayruns();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
 
   const fetchPayruns = async () => {
     try {
@@ -279,13 +312,22 @@ export function PayRunPage({ onSelectPayslip }) {
                   {/* Lifecycle Buttons */}
                   <div className="flex items-center gap-2">
                     {payrunDetails.payrun.status === 'DRAFT' && (
-                      <button
-                        onClick={handleCompute}
-                        className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow-lg shadow-brand-500/25 flex items-center gap-2"
-                      >
-                        <Play className="w-3.5 h-3.5" />
-                        Compute Payroll
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenEdit(payrunDetails.payrun)}
+                          className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          Edit Details
+                        </button>
+                        <button
+                          onClick={handleCompute}
+                          className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow-lg shadow-brand-500/25 flex items-center gap-2"
+                        >
+                          <Play className="w-3.5 h-3.5" />
+                          Compute Payroll
+                        </button>
+                      </div>
                     )}
 
                     {payrunDetails.payrun.status === 'COMPUTED' && (
@@ -631,6 +673,77 @@ export function PayRunPage({ onSelectPayslip }) {
               className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/25"
             >
               Confirm Disbursement & Mark PAID
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Pay Run Modal */}
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Edit Pay Run Details"
+        subtitle="Update pay run title, payroll period range, or operational notes"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Pay Run Name *</label>
+            <input
+              type="text"
+              required
+              value={editForm.name}
+              onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Period Start *</label>
+              <input
+                type="date"
+                required
+                value={editForm.period_start}
+                onChange={e => setEditForm({ ...editForm, period_start: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Period End *</label>
+              <input
+                type="date"
+                required
+                value={editForm.period_end}
+                onChange={e => setEditForm({ ...editForm, period_end: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Notes / Remarks</label>
+            <textarea
+              rows="3"
+              value={editForm.notes}
+              onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
+              placeholder="e.g. Adjusted processing cycle for monthly regular payroll..."
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500"
+            ></textarea>
+          </div>
+
+          <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setEditModalOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/25"
+            >
+              Save Changes
             </button>
           </div>
         </form>
