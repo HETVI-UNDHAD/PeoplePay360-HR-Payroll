@@ -177,7 +177,7 @@ function computeSalary(contract, rules, attendanceData = {}) {
   // Ensure Overtime Allowance row is always present in payslip lines
   if (!overtimeRuleProcessed) {
     lines.push({
-      salaryRuleId: 'rule-ot',
+      salaryRuleId: null,
       ruleCode: 'OT',
       ruleName: overtimeHours > 0 ? `Overtime Allowance (${overtimeHours} hrs @ 1.5x)` : 'Overtime Allowance',
       category: 'ALLOWANCE',

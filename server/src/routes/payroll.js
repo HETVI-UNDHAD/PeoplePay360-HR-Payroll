@@ -865,14 +865,16 @@ router.post('/payruns/:id/compute', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, 
       );
 
       // 7. Insert itemized payslip lines
+      const validRuleIds = new Set(rulesRes.rows.map(r => r.id));
       for (const line of calculation.lines) {
+        const ruleIdToInsert = (line.salaryRuleId && validRuleIds.has(line.salaryRuleId)) ? line.salaryRuleId : null;
         await query(
           `INSERT INTO payslip_lines (
             id, payslip_id, salary_rule_id, rule_code, rule_name,
             category, sequence, computation_type, rate, amount, created_at
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)`,
           [
-            uuidv4(), payslipId, line.salaryRuleId, line.ruleCode,
+            uuidv4(), payslipId, ruleIdToInsert, line.ruleCode,
             line.ruleName, line.category, line.sequence, line.computationType,
             line.rate, line.amount
           ]
@@ -1166,14 +1168,16 @@ router.post('/payruns/:id/employees/:employeeId/recalculate', checkRole(ROLES.AD
       ]
     );
 
+    const validRuleIds = new Set(rulesRes.rows.map(r => r.id));
     for (const line of calculation.lines) {
+      const ruleIdToInsert = (line.salaryRuleId && validRuleIds.has(line.salaryRuleId)) ? line.salaryRuleId : null;
       await query(
         `INSERT INTO payslip_lines (
           id, payslip_id, salary_rule_id, rule_code, rule_name,
           category, sequence, computation_type, rate, amount, created_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)`,
         [
-          uuidv4(), payslipId, line.salaryRuleId, line.ruleCode,
+          uuidv4(), payslipId, ruleIdToInsert, line.ruleCode,
           line.ruleName, line.category, line.sequence, line.computationType,
           line.rate, line.amount
         ]
