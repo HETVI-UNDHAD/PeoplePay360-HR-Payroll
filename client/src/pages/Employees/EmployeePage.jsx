@@ -22,12 +22,14 @@ import {
   Clock,
   Award,
   Receipt,
-  UserCheck
+  UserCheck,
+  ShieldCheck
 } from 'lucide-react';
 
 export function EmployeePage() {
   const { user, isHR, isAdmin, isEmployee, showToast } = useAuth();
   const [employees, setEmployees] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
   const [salaryStructures, setSalaryStructures] = useState([]);
@@ -46,7 +48,29 @@ export function EmployeePage() {
   const [selectedEmpDetails, setSelectedEmpDetails] = useState(null);
   const [detailsTab, setDetailsTab] = useState('overview'); // overview, contracts, attendance, timeoff, payslips
 
-  // Form State
+  // Edit Employee Modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    id: '',
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    department_id: '',
+    designation_id: '',
+    joining_date: '',
+    status: 'ACTIVE',
+    role_code: 'EMPLOYEE',
+    wage: '',
+    salary_structure_id: '',
+    working_schedule_id: '',
+    contract_type: 'PERMANENT',
+    bank_name: '',
+    bank_account_number: '',
+    tax_identifier: ''
+  });
+
+  // Create Form State
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -58,6 +82,7 @@ export function EmployeePage() {
     joining_date: new Date().toISOString().split('T')[0],
     status: 'ACTIVE',
     gender: 'Female',
+    role_code: 'EMPLOYEE',
     date_of_birth: '',
     address: '',
     bank_name: '',
@@ -74,17 +99,19 @@ export function EmployeePage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [empRes, deptRes, desigRes, structRes, schedRes] = await Promise.all([
+      const [empRes, deptRes, desigRes, structRes, schedRes, rolesRes] = await Promise.all([
         api.getEmployees({ department_id: selectedDept, status: selectedStatus, search }),
         api.getDepartments(),
         api.getDesignations(),
         api.getSalaryStructures(),
-        api.getSchedules()
+        api.getSchedules(),
+        api.getRoles()
       ]);
 
       if (empRes.success) setEmployees(empRes.employees);
       if (deptRes.success) setDepartments(deptRes.departments);
       if (desigRes.success) setDesignations(desigRes.designations);
+      if (rolesRes.success) setRoles(rolesRes.roles);
       if (structRes.success) {
         setSalaryStructures(structRes.structures);
         if (structRes.structures.length > 0 && !formData.salary_structure_id) {
@@ -121,16 +148,89 @@ export function EmployeePage() {
     }
   };
 
+  const handleOpenEdit = (emp) => {
+    setEditFormData({
+      id: emp.id,
+      first_name: emp.first_name || '',
+      last_name: emp.last_name || '',
+      email: emp.email || '',
+      phone: emp.phone || '',
+      department_id: emp.department_id || '',
+      designation_id: emp.designation_id || '',
+      joining_date: emp.joining_date ? emp.joining_date.split('T')[0] : '',
+      status: emp.status || 'ACTIVE',
+      role_code: emp.role_code || 'EMPLOYEE',
+      wage: emp.wage ? parseFloat(emp.wage) : '',
+      salary_structure_id: emp.salary_structure_id || (salaryStructures[0]?.id || ''),
+      working_schedule_id: emp.working_schedule_id || (schedules[0]?.id || ''),
+      contract_type: emp.contract_type || 'PERMANENT',
+      bank_name: emp.bank_name || '',
+      bank_account_number: emp.bank_account_number || '',
+      tax_identifier: emp.tax_identifier || ''
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.updateEmployee(editFormData.id, editFormData);
+      showToast(res.message || 'Employee updated successfully', 'success');
+      setEditModalOpen(false);
+      fetchData();
+      if (selectedEmpDetails && selectedEmpDetails.employee.id === editFormData.id) {
+        handleOpenDetails(editFormData.id);
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     try {
       const res = await api.createEmployee(formData);
       showToast(res.message, 'success');
       setFormModalOpen(false);
+      setFormData({
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        department_id: '',
+        designation_id: '',
+        manager_id: '',
+        joining_date: new Date().toISOString().split('T')[0],
+        status: 'ACTIVE',
+        gender: 'Female',
+        role_code: 'EMPLOYEE',
+        date_of_birth: '',
+        address: '',
+        bank_name: '',
+        bank_account_number: '',
+        bank_ifsc_swift: '',
+        tax_identifier: '',
+        create_contract: true,
+        contract_type: 'PERMANENT',
+        wage: 6000,
+        salary_structure_id: salaryStructures[0]?.id || '',
+        working_schedule_id: schedules[0]?.id || ''
+      });
       fetchData();
     } catch (err) {
       showToast(err.message, 'error');
     }
+  };
+
+  const getRoleBadge = (roleCode) => {
+    const badges = {
+      ADMIN: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+      HR_MANAGER: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+      PAYROLL_ADMIN: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+      PAYROLL_USER: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+      EMPLOYEE: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+    };
+    return badges[roleCode] || 'bg-slate-800 text-slate-300';
   };
 
   return (
@@ -138,11 +238,9 @@ export function EmployeePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">
-            {isEmployee ? 'My Employee Profile' : 'Employee Directory'}
-          </h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Employee Directory</h2>
           <p className="text-xs text-slate-400 mt-1">
-            {isEmployee ? 'View your personal profile, contracts, and assigned schedule.' : 'Manage organizational personnel, contracts, schedules, and salary structures.'}
+            Manage organizational personnel, contracts, schedules, RBAC system roles, and salary structures.
           </p>
         </div>
 
@@ -157,86 +255,79 @@ export function EmployeePage() {
         )}
       </div>
 
-      {/* Filter Bar */}
-      {!isEmployee && (
-        <div className="glass-panel p-4 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-              <input
-                type="text"
-                placeholder="Search by name, code or email..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
-              />
-            </div>
+      {/* Control Bar: Search, Filters & View Toggle */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 glass-panel rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
+          <Search className="w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by name, code or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-transparent border-none text-xs text-white placeholder-slate-500 focus:outline-none w-full"
+          />
+        </div>
 
-            {/* Department Filter */}
-            <select
-              value={selectedDept}
-              onChange={(e) => setSelectedDept(e.target.value)}
-              className="bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
-            >
-              <option value="">All Departments</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
+            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none"
+          >
+            <option value="">All Departments</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
 
-            {/* Status Filter */}
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
-            >
-              <option value="">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="ON_LEAVE">On Leave</option>
-              <option value="PROBATION">Probation</option>
-              <option value="TERMINATED">Terminated</option>
-            </select>
-          </div>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none"
+          >
+            <option value="">All Statuses</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PROBATION">Probation</option>
+            <option value="SUSPENDED">Suspended</option>
+            <option value="TERMINATED">Terminated</option>
+          </select>
 
-          {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+          <div className="flex items-center border border-slate-800 rounded-xl p-0.5 bg-slate-950">
             <button
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`p-1.5 rounded-lg text-xs transition-colors ${viewMode === 'list' ? 'bg-slate-800 text-brand-400' : 'text-slate-400 hover:text-white'}`}
+              title="List View"
             >
               <List className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-lg transition-colors ${viewMode === 'card' ? 'bg-brand-500 text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`p-1.5 rounded-lg text-xs transition-colors ${viewMode === 'card' ? 'bg-slate-800 text-brand-400' : 'text-slate-400 hover:text-white'}`}
+              title="Card View"
             >
               <Grid className="w-4 h-4" />
             </button>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Content */}
+      {/* Main Content: Cards or Table */}
       {loading ? (
-        <div className="text-center py-12 text-xs text-slate-500">Loading employees...</div>
+        <div className="py-20 text-center text-slate-500 text-xs">Loading employee directory...</div>
       ) : employees.length === 0 ? (
-        <div className="glass-panel p-12 rounded-3xl border border-slate-800 text-center">
-          <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h4 className="text-sm font-semibold text-white">No employees found</h4>
-          <p className="text-xs text-slate-400 mt-1">Try adjusting your filters or create a new employee.</p>
+        <div className="py-20 text-center glass-panel rounded-3xl border border-slate-800 text-slate-400 text-xs">
+          No employees found matching criteria.
         </div>
       ) : viewMode === 'card' ? (
-        /* Card View */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        /* Card Grid View */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {employees.map((emp) => (
             <div
               key={emp.id}
-              onClick={() => handleOpenDetails(emp.id)}
-              className="glass-panel glass-panel-hover p-5 rounded-3xl border border-slate-800 cursor-pointer flex flex-col justify-between"
+              className="glass-panel p-5 rounded-3xl border border-slate-800 hover:border-brand-500/50 transition-all flex flex-col justify-between"
             >
               <div>
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
                     <img
                       src={emp.profile_image || `https://ui-avatars.com/api/?name=${emp.first_name}+${emp.last_name}&background=0e8fe6&color=fff`}
@@ -246,6 +337,9 @@ export function EmployeePage() {
                     <div>
                       <h4 className="text-sm font-bold text-white leading-tight">{emp.first_name} {emp.last_name}</h4>
                       <p className="text-[11px] text-brand-400 font-medium mt-0.5">{emp.designation_name || 'Staff'}</p>
+                      <span className={`inline-block mt-1 text-[9px] font-bold px-2 py-0.2 rounded-full border ${getRoleBadge(emp.role_code || 'EMPLOYEE')}`}>
+                        {emp.role_name || emp.role_code || 'Employee'}
+                      </span>
                     </div>
                   </div>
                   <StatusBadge status={emp.status} size="xs" />
@@ -254,7 +348,7 @@ export function EmployeePage() {
                 <div className="space-y-1.5 text-xs text-slate-400 py-3 border-y border-slate-800/80">
                   <div className="flex items-center gap-2">
                     <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                    <span className="text-slate-300">{emp.department_name || 'General'}</span>
+                    <span className="text-slate-300">{emp.department_name || '—'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Mail className="w-3.5 h-3.5 text-slate-500" />
@@ -262,14 +356,31 @@ export function EmployeePage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-3.5 h-3.5 text-slate-500" />
-                    <span className="text-emerald-400 font-semibold">{emp.wage ? `$${parseFloat(emp.wage).toLocaleString()}/mo` : 'No contract'}</span>
+                    <span className="text-emerald-400 font-semibold">{emp.wage ? `$${parseFloat(emp.wage).toLocaleString()}/mo` : '—'}</span>
                   </div>
                 </div>
               </div>
 
               <div className="mt-4 pt-2 flex items-center justify-between text-[11px] text-slate-500">
                 <span>Code: <strong className="text-slate-300 font-mono">{emp.employee_code}</strong></span>
-                <span className="text-brand-400 flex items-center gap-1 font-medium">360° View &rarr;</span>
+                <div className="flex items-center gap-2">
+                  {(isHR || isAdmin) && (
+                    <button
+                      onClick={() => handleOpenEdit(emp)}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
+                      title="Edit Profile"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleOpenDetails(emp.id)}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-300 hover:text-white transition-colors"
+                    title="View 360 Profile"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -283,6 +394,7 @@ export function EmployeePage() {
                 <tr>
                   <th className="py-3.5 px-4 font-semibold">Employee</th>
                   <th className="py-3.5 px-4 font-semibold">Code</th>
+                  <th className="py-3.5 px-4 font-semibold">System Role</th>
                   <th className="py-3.5 px-4 font-semibold">Department</th>
                   <th className="py-3.5 px-4 font-semibold">Designation</th>
                   <th className="py-3.5 px-4 font-semibold">Monthly Wage</th>
@@ -307,6 +419,11 @@ export function EmployeePage() {
                       </div>
                     </td>
                     <td className="py-3 px-4 font-mono font-medium text-slate-300">{emp.employee_code}</td>
+                    <td className="py-3 px-4">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadge(emp.role_code || 'EMPLOYEE')}`}>
+                        {emp.role_name || emp.role_code || 'Employee'}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 text-slate-300">{emp.department_name || '—'}</td>
                     <td className="py-3 px-4 text-slate-300">{emp.designation_name || '—'}</td>
                     <td className="py-3 px-4 text-emerald-400 font-semibold">
@@ -316,13 +433,24 @@ export function EmployeePage() {
                       <StatusBadge status={emp.status} size="xs" />
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => handleOpenDetails(emp.id)}
-                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-300 hover:text-white transition-colors"
-                        title="View 360 Profile"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {(isHR || isAdmin) && (
+                          <button
+                            onClick={() => handleOpenEdit(emp)}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
+                            title="Edit Profile & Contract"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleOpenDetails(emp.id)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-300 hover:text-white transition-colors"
+                          title="View 360 Profile"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -337,7 +465,7 @@ export function EmployeePage() {
         isOpen={detailsModalOpen}
         onClose={() => setDetailsModalOpen(false)}
         title={selectedEmpDetails ? `${selectedEmpDetails.employee.first_name} ${selectedEmpDetails.employee.last_name} (${selectedEmpDetails.employee.employee_code})` : 'Employee Details'}
-        subtitle={selectedEmpDetails?.employee.designation_name}
+        subtitle={selectedEmpDetails?.employee.designation_name || selectedEmpDetails?.employee.email}
         maxWidth="max-w-4xl"
       >
         {selectedEmpDetails && (
@@ -375,8 +503,14 @@ export function EmployeePage() {
                   <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
                     <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Employment Details</h5>
                     <div className="space-y-2 text-xs">
-                      <div className="flex justify-between"><span className="text-slate-500">Department:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.department_name || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Designation:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.designation_name || 'N/A'}</span></div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">System Role:</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadge(selectedEmpDetails.employee.role_code || 'EMPLOYEE')}`}>
+                          {selectedEmpDetails.employee.role_name || selectedEmpDetails.employee.role_code || 'Employee'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between"><span className="text-slate-500">Department:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.department_name || '—'}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Designation:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.designation_name || '—'}</span></div>
                       <div className="flex justify-between"><span className="text-slate-500">Joining Date:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.joining_date}</span></div>
                       <div className="flex justify-between"><span className="text-slate-500">Manager:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.manager_name || 'None'}</span></div>
                       <div className="flex justify-between"><span className="text-slate-500">Status:</span> <StatusBadge status={selectedEmpDetails.employee.status} size="xs" /></div>
@@ -393,13 +527,30 @@ export function EmployeePage() {
                     </div>
                   </div>
                 </div>
+
+                {(isHR || isAdmin) && (
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      onClick={() => {
+                        setDetailsModalOpen(false);
+                        handleOpenEdit(selectedEmpDetails.employee);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition-colors"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      Edit Profile & Contract
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Tab 2: Contracts */}
             {detailsTab === 'contracts' && (
               <div className="space-y-3">
-                {selectedEmpDetails.contracts.map((c) => (
+                {selectedEmpDetails.contracts.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-4 text-center">No active contracts found for this employee.</p>
+                ) : selectedEmpDetails.contracts.map((c) => (
                   <div key={c.id} className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
@@ -494,7 +645,6 @@ export function EmployeePage() {
                 ))}
               </div>
             )}
-
           </div>
         )}
       </Modal>
@@ -504,7 +654,7 @@ export function EmployeePage() {
         isOpen={formModalOpen}
         onClose={() => setFormModalOpen(false)}
         title="Create New Employee Profile"
-        subtitle="Registers employee, generates user account, contracts, and leave balances"
+        subtitle="Registers employee, generates user account with role, contracts, and leave balances"
         maxWidth="max-w-3xl"
       >
         <form onSubmit={handleFormSubmit} className="space-y-4">
@@ -548,6 +698,24 @@ export function EmployeePage() {
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
               />
             </div>
+
+            {/* System Role Selection */}
+            <div>
+              <label className="block text-xs font-semibold text-brand-300 mb-1">Assign System Role *</label>
+              <select
+                required
+                value={formData.role_code}
+                onChange={e => setFormData({ ...formData, role_code: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-semibold"
+              >
+                {roles.map(r => (
+                  <option key={r.id} value={r.code}>
+                    {r.name} ({r.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Department</label>
               <select
@@ -682,6 +850,201 @@ export function EmployeePage() {
               className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/25"
             >
               Save Employee & Contract
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: Edit Employee Profile & Contract */}
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Edit Employee Profile & Contract"
+        subtitle="Update department, designation, salary contract, and system role"
+        maxWidth="max-w-3xl"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">First Name *</label>
+              <input
+                type="text"
+                required
+                value={editFormData.first_name}
+                onChange={e => setEditFormData({ ...editFormData, first_name: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Last Name *</label>
+              <input
+                type="text"
+                required
+                value={editFormData.last_name}
+                onChange={e => setEditFormData({ ...editFormData, last_name: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address *</label>
+              <input
+                type="email"
+                required
+                value={editFormData.email}
+                onChange={e => setEditFormData({ ...editFormData, email: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
+              <input
+                type="text"
+                value={editFormData.phone}
+                onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+              />
+            </div>
+
+            {/* System Role Selection */}
+            <div>
+              <label className="block text-xs font-semibold text-brand-300 mb-1">Assigned System Role *</label>
+              <select
+                required
+                value={editFormData.role_code}
+                onChange={e => setEditFormData({ ...editFormData, role_code: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-semibold"
+              >
+                {roles.map(r => (
+                  <option key={r.id} value={r.code}>
+                    {r.name} ({r.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Department</label>
+              <select
+                value={editFormData.department_id}
+                onChange={e => setEditFormData({ ...editFormData, department_id: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
+              >
+                <option value="">Select Department</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Designation</label>
+              <select
+                value={editFormData.designation_id}
+                onChange={e => setEditFormData({ ...editFormData, designation_id: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
+              >
+                <option value="">Select Designation</option>
+                {designations.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Status</label>
+              <select
+                value={editFormData.status}
+                onChange={e => setEditFormData({ ...editFormData, status: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="PROBATION">Probation</option>
+                <option value="SUSPENDED">Suspended</option>
+                <option value="TERMINATED">Terminated</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Contract & Wage Section */}
+          <div className="pt-4 border-t border-slate-800 space-y-3">
+            <h5 className="text-xs font-bold text-brand-400 uppercase">Employment Contract & Wage</h5>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Monthly Wage ($)</label>
+                <input
+                  type="number"
+                  value={editFormData.wage}
+                  onChange={e => setEditFormData({ ...editFormData, wage: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Salary Structure</label>
+                <select
+                  value={editFormData.salary_structure_id}
+                  onChange={e => setEditFormData({ ...editFormData, salary_structure_id: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
+                >
+                  {salaryStructures.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Working Schedule</label>
+                <select
+                  value={editFormData.working_schedule_id}
+                  onChange={e => setEditFormData({ ...editFormData, working_schedule_id: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
+                >
+                  {schedules.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Bank details */}
+          <div className="pt-4 border-t border-slate-800 space-y-3">
+            <h5 className="text-xs font-bold text-slate-400 uppercase">Disbursement & Bank Info</h5>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Bank Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Chase Bank"
+                  value={editFormData.bank_name}
+                  onChange={e => setEditFormData({ ...editFormData, bank_name: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Account Number</label>
+                <input
+                  type="text"
+                  placeholder="e.g. CHS-12345678"
+                  value={editFormData.bank_account_number}
+                  onChange={e => setEditFormData({ ...editFormData, bank_account_number: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Tax Identifier (SSN)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. TAX-US-1029"
+                  value={editFormData.tax_identifier}
+                  onChange={e => setEditFormData({ ...editFormData, tax_identifier: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setEditModalOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/25"
+            >
+              Update Employee & Contract
             </button>
           </div>
         </form>

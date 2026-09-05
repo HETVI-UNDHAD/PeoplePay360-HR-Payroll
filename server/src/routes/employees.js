@@ -23,12 +23,16 @@ router.get('/', async (req, res) => {
       }
       const selfRes = await query(
         `SELECT e.*, d.name as department_name, des.name as designation_name,
-                c.id as active_contract_id, c.wage, c.contract_type, ss.name as salary_structure_name
+                c.id as active_contract_id, c.wage, c.contract_type, ss.name as salary_structure_name,
+                r.code as role_code, r.name as role_name, r.id as role_id
          FROM employees e
          LEFT JOIN departments d ON d.id = e.department_id
          LEFT JOIN designations des ON des.id = e.designation_id
          LEFT JOIN contracts c ON c.employee_id = e.id AND c.status = 'ACTIVE'
          LEFT JOIN salary_structures ss ON ss.id = c.salary_structure_id
+         LEFT JOIN users u ON u.id = e.user_id
+         LEFT JOIN user_roles ur ON ur.user_id = u.id
+         LEFT JOIN roles r ON r.id = ur.role_id
          WHERE e.id = $1`,
         [userEmpId]
       );
@@ -43,7 +47,8 @@ router.get('/', async (req, res) => {
              m.first_name || ' ' || m.last_name as manager_name,
              c.id as active_contract_id, c.wage, c.contract_type, c.status as contract_status,
              ss.name as salary_structure_name, ss.id as salary_structure_id,
-             ws.name as working_schedule_name
+             ws.name as working_schedule_name, ws.id as working_schedule_id,
+             r.code as role_code, r.name as role_name, r.id as role_id
       FROM employees e
       LEFT JOIN departments d ON d.id = e.department_id
       LEFT JOIN designations des ON des.id = e.designation_id
@@ -51,6 +56,9 @@ router.get('/', async (req, res) => {
       LEFT JOIN contracts c ON c.employee_id = e.id AND c.status = 'ACTIVE'
       LEFT JOIN salary_structures ss ON ss.id = c.salary_structure_id
       LEFT JOIN working_schedules ws ON ws.id = c.working_schedule_id
+      LEFT JOIN users u ON u.id = e.user_id
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id
       WHERE 1=1
     `;
     const params = [];
@@ -96,12 +104,15 @@ router.get('/:id', async (req, res) => {
     const empRes = await query(
       `SELECT e.*, d.name as department_name, des.name as designation_name,
               m.first_name || ' ' || m.last_name as manager_name,
-              u.email as user_email, u.is_active as user_active
+              u.email as user_email, u.is_active as user_active,
+              r.id as role_id, r.code as role_code, r.name as role_name
        FROM employees e
        LEFT JOIN departments d ON d.id = e.department_id
        LEFT JOIN designations des ON des.id = e.designation_id
        LEFT JOIN employees m ON m.id = e.manager_id
        LEFT JOIN users u ON u.id = e.user_id
+       LEFT JOIN user_roles ur ON ur.user_id = u.id
+       LEFT JOIN roles r ON r.id = ur.role_id
        WHERE e.id = $1`,
       [id]
     );
@@ -196,7 +207,8 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
       bank_account_number,
       bank_ifsc_swift,
       tax_identifier,
-      // Optional initial contract details
+      role_id,
+      role_code,
       create_contract,
       contract_type,
       wage,
@@ -234,15 +246,25 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
          VALUES ($1, $2, $3, $4, $5, $6, TRUE, CURRENT_TIMESTAMP)`,
         [userId, email.trim().toLowerCase(), defaultPassword, first_name.trim(), last_name.trim(), phone || null]
       );
+    }
 
+    // Determine target role (from role_id, role_code, or default EMPLOYEE)
+    let targetRoleId = role_id;
+    if (!targetRoleId && role_code) {
+      const rRes = await query('SELECT id FROM roles WHERE code = $1', [role_code]);
+      if (rRes.rows.length > 0) targetRoleId = rRes.rows[0].id;
+    }
+    if (!targetRoleId) {
       const empRoleRes = await query("SELECT id FROM roles WHERE code = 'EMPLOYEE'");
-      if (empRoleRes.rows.length > 0) {
-        await query(
-          `INSERT INTO user_roles (id, user_id, role_id, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-           ON CONFLICT DO NOTHING`,
-          [uuidv4(), userId, empRoleRes.rows[0].id]
-        );
-      }
+      if (empRoleRes.rows.length > 0) targetRoleId = empRoleRes.rows[0].id;
+    }
+
+    if (targetRoleId) {
+      await query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
+      await query(
+        `INSERT INTO user_roles (id, user_id, role_id, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+        [uuidv4(), userId, targetRoleId]
+      );
     }
 
     // 2. Create Employee
@@ -262,14 +284,28 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
       ]
     );
 
-    // 3. Create initial contract if requested
-    if (create_contract && salary_structure_id && working_schedule_id) {
-      const contractId = uuidv4();
-      await query(
-        `INSERT INTO contracts (id, employee_id, contract_start_date, contract_type, salary_structure_id, wage, working_schedule_id, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE', CURRENT_TIMESTAMP)`,
-        [contractId, empId, joining_date, contract_type || 'PERMANENT', salary_structure_id, parseFloat(wage) || 0, working_schedule_id]
-      );
+    // 3. Create initial contract if requested or if wage is provided
+    const numericWage = parseFloat(wage);
+    if (create_contract || (!isNaN(numericWage) && numericWage > 0)) {
+      let structId = salary_structure_id;
+      if (!structId) {
+        const sRes = await query('SELECT id FROM salary_structures WHERE is_active = TRUE LIMIT 1');
+        structId = sRes.rows[0]?.id;
+      }
+      let schedId = working_schedule_id;
+      if (!schedId) {
+        const scRes = await query('SELECT id FROM working_schedules WHERE is_active = TRUE LIMIT 1');
+        schedId = scRes.rows[0]?.id;
+      }
+
+      if (structId && schedId) {
+        const contractId = uuidv4();
+        await query(
+          `INSERT INTO contracts (id, employee_id, contract_start_date, contract_type, salary_structure_id, wage, working_schedule_id, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE', CURRENT_TIMESTAMP)`,
+          [contractId, empId, joining_date, contract_type || 'PERMANENT', structId, !isNaN(numericWage) ? numericWage : 0, schedId]
+        );
+      }
     }
 
     // 4. Create default leave allocations
@@ -285,7 +321,7 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
       );
     }
 
-    await logAudit(req.user.id, 'CREATE_EMPLOYEE', 'employees', empId, { employee_code, first_name, last_name, email }, req);
+    await logAudit(req.user.id, 'CREATE_EMPLOYEE', 'employees', empId, { employee_code, first_name, last_name, email, role: role_code }, req);
 
     res.status(201).json({
       success: true,
@@ -299,35 +335,119 @@ router.post('/', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
   }
 });
 
-// PUT /api/employees/:id - Update Employee
+// PUT /api/employees/:id - Update Employee & Contract & Role
 router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
   try {
     const { id } = req.params;
     const {
       first_name, last_name, email, phone, department_id, designation_id,
       manager_id, joining_date, status, profile_image, gender, date_of_birth,
-      address, bank_name, bank_account_number, bank_ifsc_swift, tax_identifier
+      address, bank_name, bank_account_number, bank_ifsc_swift, tax_identifier,
+      role_id, role_code, wage, salary_structure_id, working_schedule_id, contract_type
     } = req.body;
 
+    // 1. Update Employee record
     await query(
       `UPDATE employees SET
-        first_name = $1, last_name = $2, email = $3, phone = $4,
-        department_id = $5, designation_id = $6, manager_id = $7,
-        joining_date = $8, status = $9, profile_image = $10,
-        gender = $11, date_of_birth = $12, address = $13,
-        bank_name = $14, bank_account_number = $15, bank_ifsc_swift = $16,
-        tax_identifier = $17, updated_at = CURRENT_TIMESTAMP
+        first_name = COALESCE($1, first_name),
+        last_name = COALESCE($2, last_name),
+        email = COALESCE($3, email),
+        phone = COALESCE($4, phone),
+        department_id = $5,
+        designation_id = $6,
+        manager_id = $7,
+        joining_date = COALESCE($8, joining_date),
+        status = COALESCE($9, status),
+        profile_image = COALESCE($10, profile_image),
+        gender = COALESCE($11, gender),
+        date_of_birth = $12,
+        address = COALESCE($13, address),
+        bank_name = COALESCE($14, bank_name),
+        bank_account_number = COALESCE($15, bank_account_number),
+        bank_ifsc_swift = COALESCE($16, bank_ifsc_swift),
+        tax_identifier = COALESCE($17, tax_identifier),
+        updated_at = CURRENT_TIMESTAMP
        WHERE id = $18`,
       [
-        first_name, last_name, email, phone, department_id, designation_id,
-        manager_id || null, joining_date, status, profile_image, gender,
-        date_of_birth || null, address, bank_name, bank_account_number,
-        bank_ifsc_swift, tax_identifier, id
+        first_name || null, last_name || null, email ? email.trim().toLowerCase() : null, phone || null,
+        department_id || null, designation_id || null, manager_id || null, joining_date || null,
+        status || null, profile_image || null, gender || null, date_of_birth || null,
+        address || null, bank_name || null, bank_account_number || null, bank_ifsc_swift || null,
+        tax_identifier || null, id
       ]
     );
 
-    await logAudit(req.user.id, 'UPDATE_EMPLOYEE', 'employees', id, { first_name, last_name, status }, req);
-    res.json({ success: true, message: 'Employee updated successfully' });
+    // 2. Update or create active contract if wage is specified
+    if (wage !== undefined && wage !== null && wage !== '') {
+      const numericWage = parseFloat(wage);
+      if (!isNaN(numericWage)) {
+        let structId = salary_structure_id;
+        if (!structId) {
+          const sRes = await query('SELECT id FROM salary_structures WHERE is_active = TRUE LIMIT 1');
+          structId = sRes.rows[0]?.id;
+        }
+        let schedId = working_schedule_id;
+        if (!schedId) {
+          const scRes = await query('SELECT id FROM working_schedules WHERE is_active = TRUE LIMIT 1');
+          schedId = scRes.rows[0]?.id;
+        }
+
+        const activeCont = await query('SELECT id FROM contracts WHERE employee_id = $1 AND status = $2', [id, 'ACTIVE']);
+        if (activeCont.rows.length > 0) {
+          await query(
+            `UPDATE contracts SET
+              wage = $1,
+              salary_structure_id = COALESCE($2, salary_structure_id),
+              working_schedule_id = COALESCE($3, working_schedule_id),
+              contract_type = COALESCE($4, contract_type),
+              updated_at = CURRENT_TIMESTAMP
+             WHERE id = $5`,
+            [numericWage, structId || null, schedId || null, contract_type || null, activeCont.rows[0].id]
+          );
+        } else if (structId && schedId) {
+          await query(
+            `INSERT INTO contracts (id, employee_id, contract_start_date, contract_type, salary_structure_id, wage, working_schedule_id, status, created_at)
+             VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, 'ACTIVE', CURRENT_TIMESTAMP)`,
+            [uuidv4(), id, contract_type || 'PERMANENT', structId, numericWage, schedId]
+          );
+        }
+      }
+    }
+
+    // 3. Update User account & Role if applicable
+    const empUserRes = await query('SELECT user_id FROM employees WHERE id = $1', [id]);
+    if (empUserRes.rows.length > 0 && empUserRes.rows[0].user_id) {
+      const targetUserId = empUserRes.rows[0].user_id;
+
+      if (first_name || last_name || email || phone) {
+        await query(
+          `UPDATE users SET
+            first_name = COALESCE($1, first_name),
+            last_name = COALESCE($2, last_name),
+            email = COALESCE($3, email),
+            phone = COALESCE($4, phone),
+            updated_at = CURRENT_TIMESTAMP
+           WHERE id = $5`,
+          [first_name || null, last_name || null, email ? email.trim().toLowerCase() : null, phone || null, targetUserId]
+        );
+      }
+
+      let targetRoleId = role_id;
+      if (!targetRoleId && role_code) {
+        const rRes = await query('SELECT id FROM roles WHERE code = $1', [role_code]);
+        if (rRes.rows.length > 0) targetRoleId = rRes.rows[0].id;
+      }
+      if (targetRoleId) {
+        await query('DELETE FROM user_roles WHERE user_id = $1', [targetUserId]);
+        await query(
+          `INSERT INTO user_roles (id, user_id, role_id, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+          [uuidv4(), targetUserId, targetRoleId]
+        );
+      }
+    }
+
+    await logAudit(req.user.id, 'UPDATE_EMPLOYEE', 'employees', id, { first_name, last_name, status, role_code, wage }, req);
+    res.json({ success: true, message: 'Employee and contract details updated successfully' });
   } catch (err) {
     console.error('Update employee error:', err);
     res.status(500).json({ success: false, message: 'Failed to update employee' });
