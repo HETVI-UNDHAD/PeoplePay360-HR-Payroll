@@ -320,7 +320,7 @@ router.get('/stats', async (req, res) => {
       `SELECT COUNT(*) as count FROM payrolls WHERE status IN ('DRAFT', 'COMPUTED')`
     );
     const expiringContractsRes = await query(
-      `SELECT COUNT(*) as count FROM contracts WHERE end_date IS NOT NULL AND end_date <= (CURRENT_DATE + INTERVAL '30 days') AND status = 'ACTIVE'`
+      `SELECT COUNT(*) as count FROM contracts WHERE contract_end_date IS NOT NULL AND contract_end_date <= (CURRENT_DATE + INTERVAL '30 days') AND status = 'ACTIVE'`
     );
     const pendingLeavesRes = await query(
       `SELECT COUNT(*) as count FROM time_off_requests WHERE status = 'PENDING'`
