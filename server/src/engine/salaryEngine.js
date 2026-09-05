@@ -74,10 +74,17 @@ function computeSalary(contract, rules, attendanceData = {}) {
   const presentDays = parseFloat(attendanceData.presentDays !== undefined ? attendanceData.presentDays : workingDays);
   const paidLeaveDays = parseFloat(attendanceData.paidLeaveDays) || 0;
   const unpaidLeaveDays = parseFloat(attendanceData.unpaidLeaveDays) || 0;
+  const overtimeHours = parseFloat(attendanceData.overtimeHours) || 0;
 
-  // Working factor for pro-rata adjustment if unpaid leaves exist
-  const effectiveDays = Math.min(workingDays, Math.max(0, presentDays + paidLeaveDays));
-  const attendanceRatio = workingDays > 0 ? (effectiveDays / workingDays) : 1;
+  // Payable days = present days + paid leave days
+  const payableDays = Math.min(workingDays, Math.max(0, presentDays + paidLeaveDays));
+  const attendanceRatio = workingDays > 0 ? (payableDays / workingDays) : 1;
+  const absentDays = Math.max(0, workingDays - payableDays - unpaidLeaveDays);
+
+  // Hourly wage (assuming standard 8-hour workday)
+  const dailyRate = workingDays > 0 ? (wage / workingDays) : 0;
+  const hourlyRate = dailyRate / 8;
+  const overtimePay = Math.round(overtimeHours * hourlyRate * 1.5 * 100) / 100;
 
   // Context dictionary storing values of computed rules
   const context = {
@@ -86,7 +93,12 @@ function computeSalary(contract, rules, attendanceData = {}) {
     PRESENT_DAYS: presentDays,
     PAID_LEAVE: paidLeaveDays,
     UNPAID_LEAVE: unpaidLeaveDays,
+    ABSENT_DAYS: absentDays,
+    PAYABLE_DAYS: payableDays,
     ATTENDANCE_RATIO: attendanceRatio,
+    OVERTIME_HOURS: overtimeHours,
+    HOURLY_RATE: hourlyRate,
+    OVERTIME_PAY: overtimePay,
     GROSS: 0,
     TOTAL_DEDUCTIONS: 0
   };
@@ -97,6 +109,7 @@ function computeSalary(contract, rules, attendanceData = {}) {
 
   // Sort rules strictly by sequence
   const sortedRules = [...rules].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  let overtimeRuleProcessed = false;
 
   for (const rule of sortedRules) {
     if (rule.is_active === false) continue;
@@ -120,17 +133,25 @@ function computeSalary(contract, rules, attendanceData = {}) {
       amount = evaluateExpression(rule.formula, context);
     }
 
-    // Apply unpaid leave deduction factor to earnings if wage pro-rata applies
-    if (['BASIC', 'ALLOWANCE'].includes(rule.category) && unpaidLeaveDays > 0 && attendanceRatio < 1) {
+    // Apply pro-rata factor for BASIC and ALLOWANCE rules if payable days < working days
+    // (Unless the rule code explicitly represents overtime)
+    const rCode = (rule.code || '').toUpperCase();
+    if (['BASIC', 'ALLOWANCE'].includes(rule.category) && attendanceRatio < 1 && rCode !== 'OT' && rCode !== 'OVERTIME') {
       amount = amount * attendanceRatio;
     }
 
     // Round to 2 decimals
     amount = Math.round(amount * 100) / 100;
 
+    if (rCode === 'OT' || rCode === 'OVERTIME') {
+      overtimeRuleProcessed = true;
+      if (overtimeHours > 0 && amount === 0) {
+        amount = overtimePay;
+      }
+    }
+
     // Store in context for subsequent rules
-    const ruleCode = (rule.code || '').toUpperCase();
-    context[ruleCode] = amount;
+    context[rCode] = amount;
 
     // Categorize
     if (rule.category === 'BASIC' || rule.category === 'ALLOWANCE') {
@@ -153,6 +174,23 @@ function computeSalary(contract, rules, attendanceData = {}) {
     });
   }
 
+  // If overtime hours were logged and no explicit OT rule existed in the structure, auto-add Overtime Pay line
+  if (overtimeHours > 0 && !overtimeRuleProcessed && overtimePay > 0) {
+    grossSalary += overtimePay;
+    context.GROSS = grossSalary;
+    context.OT = overtimePay;
+    lines.push({
+      salaryRuleId: null,
+      ruleCode: 'OT',
+      ruleName: `Overtime Allowance (${overtimeHours} hrs @ 1.5x)`,
+      category: 'ALLOWANCE',
+      sequence: 45,
+      computationType: 'FORMULA',
+      rate: 150,
+      amount: overtimePay
+    });
+  }
+
   // Net salary calculation
   grossSalary = Math.round(grossSalary * 100) / 100;
   totalDeductions = Math.round(totalDeductions * 100) / 100;
@@ -167,7 +205,10 @@ function computeSalary(contract, rules, attendanceData = {}) {
     presentDays,
     paidLeaveDays,
     unpaidLeaveDays,
-    payableDays: effectiveDays,
+    absentDays,
+    overtimeHours,
+    overtimePay,
+    payableDays,
     attendanceRatio,
     wage
   };

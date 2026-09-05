@@ -293,9 +293,9 @@ router.get('/eligibility', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAY
         blockingReasons.push(`Payslip already exists for this period in pay run "${dupRes.rows[0].payroll_name}".`);
       }
 
-      // 3. Bank Account Validation (Required for salary disbursement)
+      // 3. Bank Account Validation (Warning prior to finalization/disbursement)
       if (!emp.bank_account_number || !emp.bank_name) {
-        blockingReasons.push('Missing bank account details (Bank Name / Account #) required for salary disbursement.');
+        warnings.push('Missing bank account details (A/C missing).');
       }
       if (!emp.tax_identifier) {
         warnings.push('Missing tax identification number.');
@@ -491,8 +491,15 @@ router.get('/payruns/:id', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAY
       }
     }
 
-    // Format employee list with derived payable days and warnings
-    const formattedEmployees = empRes.rows.map(emp => {
+    // Format employee list with derived payable days and warnings (deduplicated by emp_id)
+    const seenEmpIds = new Set();
+    const uniqueEmpRows = empRes.rows.filter(row => {
+      if (seenEmpIds.has(row.emp_id)) return false;
+      seenEmpIds.add(row.emp_id);
+      return true;
+    });
+
+    const formattedEmployees = uniqueEmpRows.map(emp => {
       const wDays = parseFloat(emp.working_days) || 22;
       const pDays = parseFloat(emp.present_days) || 0;
       const plDays = parseFloat(emp.paid_leave_days) || 0;
@@ -610,8 +617,9 @@ router.post('/payruns', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROL
       [payrunId, name.trim(), period_start, period_end, salary_structure_id || null, employee_ids.length, req.user.id, notes || null]
     );
 
-    // Link explicitly selected employees and find their applicable contract
-    for (const empId of employee_ids) {
+    // Link explicitly selected employees (deduplicated) and find their applicable contract
+    const uniqueEmpIds = Array.from(new Set(employee_ids));
+    for (const empId of uniqueEmpIds) {
       const contractRes = await query(
         `SELECT id FROM contracts 
          WHERE employee_id = $1 AND status = 'ACTIVE' 
@@ -625,7 +633,8 @@ router.post('/payruns', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAYROL
 
       await query(
         `INSERT INTO payroll_employees (id, payroll_id, employee_id, contract_id, created_at)
-         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)`,
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+         ON CONFLICT (payroll_id, employee_id) DO NOTHING`,
         [uuidv4(), payrunId, empId, contractId]
       );
     }
@@ -796,7 +805,8 @@ router.post('/payruns/:id/compute', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, 
           COUNT(*) as total_logged_days,
           COUNT(CASE WHEN status IN ('PRESENT', 'LATE') THEN 1 END) as present_days,
           COUNT(CASE WHEN status = 'HALF_DAY' THEN 1 END) as half_days,
-          COUNT(CASE WHEN status = 'ABSENT' THEN 1 END) as absent_days
+          COUNT(CASE WHEN status = 'ABSENT' THEN 1 END) as absent_days,
+          COALESCE(SUM(overtime_hours), 0) as total_overtime_hours
          FROM attendance 
          WHERE employee_id = $1 AND date >= $2 AND date <= $3`,
         [empId, payrun.period_start, payrun.period_end]
@@ -817,6 +827,7 @@ router.post('/payruns/:id/compute', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, 
       const rawPresent = parseFloat(attRes.rows[0]?.present_days || 0) + (parseFloat(attRes.rows[0]?.half_days || 0) * 0.5);
       const paidLeave = parseFloat(leaveRes.rows[0]?.paid_leave_days || 0);
       const unpaidLeave = parseFloat(leaveRes.rows[0]?.unpaid_leave_days || 0);
+      const overtimeHours = parseFloat(attRes.rows[0]?.total_overtime_hours || 0);
 
       // If no attendance was logged at all for the entire period, assume standard full attendance minus unpaid leave
       const presentDays = totalLogged > 0 ? rawPresent : Math.max(0, workingDays - unpaidLeave);
@@ -826,7 +837,8 @@ router.post('/payruns/:id/compute', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, 
         workingDays,
         presentDays,
         paidLeaveDays: paidLeave,
-        unpaidLeaveDays: unpaidLeave
+        unpaidLeaveDays: unpaidLeave,
+        overtimeHours: overtimeHours
       });
 
       // 6. Generate Payslip record
@@ -1097,7 +1109,8 @@ router.post('/payruns/:id/employees/:employeeId/recalculate', checkRole(ROLES.AD
       `SELECT 
         COUNT(*) as total_logged_days,
         COUNT(CASE WHEN status IN ('PRESENT', 'LATE') THEN 1 END) as present_days,
-        COUNT(CASE WHEN status = 'HALF_DAY' THEN 1 END) as half_days
+        COUNT(CASE WHEN status = 'HALF_DAY' THEN 1 END) as half_days,
+        COALESCE(SUM(overtime_hours), 0) as total_overtime_hours
        FROM attendance 
        WHERE employee_id = $1 AND date >= $2 AND date <= $3`,
       [employeeId, payrun.period_start, payrun.period_end]
@@ -1118,13 +1131,15 @@ router.post('/payruns/:id/employees/:employeeId/recalculate', checkRole(ROLES.AD
     const rawPresent = parseFloat(attRes.rows[0]?.present_days || 0) + (parseFloat(attRes.rows[0]?.half_days || 0) * 0.5);
     const paidLeave = parseFloat(leaveRes.rows[0]?.paid_leave_days || 0);
     const unpaidLeave = parseFloat(leaveRes.rows[0]?.unpaid_leave_days || 0);
+    const overtimeHours = parseFloat(attRes.rows[0]?.total_overtime_hours || 0);
     const presentDays = totalLogged > 0 ? rawPresent : Math.max(0, workingDays - unpaidLeave);
 
     const calculation = computeSalary(contract, rulesRes.rows, {
       workingDays,
       presentDays,
       paidLeaveDays: paidLeave,
-      unpaidLeaveDays: unpaidLeave
+      unpaidLeaveDays: unpaidLeave,
+      overtimeHours: overtimeHours
     });
 
     // Delete existing payslip for this employee
