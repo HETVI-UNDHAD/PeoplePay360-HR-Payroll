@@ -806,7 +806,7 @@ router.post('/payruns/:id/compute', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, 
           COUNT(CASE WHEN status IN ('PRESENT', 'LATE') THEN 1 END) as present_days,
           COUNT(CASE WHEN status = 'HALF_DAY' THEN 1 END) as half_days,
           COUNT(CASE WHEN status = 'ABSENT' THEN 1 END) as absent_days,
-          COALESCE(SUM(overtime_hours), 0) as total_overtime_hours
+          COALESCE(SUM(CASE WHEN overtime_hours > 0 THEN overtime_hours WHEN worked_hours > 8.0 THEN worked_hours - 8.0 ELSE 0 END), 0) as total_overtime_hours
          FROM attendance 
          WHERE employee_id = $1 AND date >= $2 AND date <= $3`,
         [empId, payrun.period_start, payrun.period_end]
@@ -1110,7 +1110,7 @@ router.post('/payruns/:id/employees/:employeeId/recalculate', checkRole(ROLES.AD
         COUNT(*) as total_logged_days,
         COUNT(CASE WHEN status IN ('PRESENT', 'LATE') THEN 1 END) as present_days,
         COUNT(CASE WHEN status = 'HALF_DAY' THEN 1 END) as half_days,
-        COALESCE(SUM(overtime_hours), 0) as total_overtime_hours
+        COALESCE(SUM(CASE WHEN overtime_hours > 0 THEN overtime_hours WHEN worked_hours > 8.0 THEN worked_hours - 8.0 ELSE 0 END), 0) as total_overtime_hours
        FROM attendance 
        WHERE employee_id = $1 AND date >= $2 AND date <= $3`,
       [employeeId, payrun.period_start, payrun.period_end]

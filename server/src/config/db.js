@@ -109,6 +109,9 @@ async function initDb() {
 
       // Ensure schema is executed
       await activePool.query(schemaSql);
+      try {
+        await activePool.query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS overtime_hours NUMERIC(5, 2) DEFAULT 0.00');
+      } catch (mErr) {}
       const rolesCheck = await activePool.query('SELECT COUNT(*) as count FROM roles');
       if (parseInt(rolesCheck.rows[0]?.count || 0, 10) === 0) {
         console.log('🌱 Seeding master static config...');

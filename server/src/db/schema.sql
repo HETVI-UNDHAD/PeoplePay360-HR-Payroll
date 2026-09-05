@@ -186,6 +186,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     check_in TIMESTAMP,
     check_out TIMESTAMP,
     worked_hours NUMERIC(5, 2) DEFAULT 0.00,
+    overtime_hours NUMERIC(5, 2) DEFAULT 0.00,
     status VARCHAR(50) DEFAULT 'PRESENT', -- 'PRESENT', 'ABSENT', 'HALF_DAY', 'LATE', 'LEAVE'
     notes TEXT,
     ip_address VARCHAR(50),
