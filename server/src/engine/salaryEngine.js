@@ -167,6 +167,8 @@ function computeSalary(contract, rules, attendanceData = {}) {
     presentDays,
     paidLeaveDays,
     unpaidLeaveDays,
+    payableDays: effectiveDays,
+    attendanceRatio,
     wage
   };
 }

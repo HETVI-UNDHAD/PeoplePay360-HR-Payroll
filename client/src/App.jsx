@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth, AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { Toast } from './components/Toast';
@@ -41,10 +42,10 @@ function MainLayout() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+      <div className="min-h-screen flex items-center justify-center bg-page text-primary theme-transition">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-slate-400 font-medium">Initializing PeoplePay360 Workspace...</p>
+          <p className="text-xs text-secondary font-medium">Initializing PeoplePay360 Workspace...</p>
         </div>
       </div>
     );
@@ -70,7 +71,7 @@ function MainLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-page text-primary flex flex-col font-sans theme-transition">
       {/* Top Navbar */}
       <Navbar />
 
@@ -80,7 +81,7 @@ function MainLayout() {
         <Sidebar currentTab={activeTab} setCurrentTab={setCurrentTab} />
 
         {/* Dynamic Page Container */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-page theme-transition">
           <div className="max-w-7xl mx-auto">
             {activeTab === 'dashboard' && <Dashboard onNavigate={(tab) => setCurrentTab(tab)} />}
             {activeTab === 'employees' && <EmployeePage />}
@@ -110,8 +111,10 @@ function MainLayout() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MainLayout />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <MainLayout />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

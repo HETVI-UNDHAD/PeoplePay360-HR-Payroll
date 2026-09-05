@@ -25,7 +25,10 @@ import {
   UserCheck,
   ShieldCheck,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  AlertCircle,
+  Check,
+  Calculator
 } from 'lucide-react';
 
 export function EmployeePage() {
@@ -539,53 +542,166 @@ export function EmployeePage() {
             </div>
 
             {/* Tab 1: Overview */}
-            {detailsTab === 'overview' && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
-                    <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Employment Details</h5>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">System Role:</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadge(selectedEmpDetails.employee.role_code || 'EMPLOYEE')}`}>
-                          {selectedEmpDetails.employee.role_name || selectedEmpDetails.employee.role_code || 'Employee'}
-                        </span>
+            {detailsTab === 'overview' && (() => {
+              const activeContract = selectedEmpDetails.contracts?.find(c => c.status === 'ACTIVE') || selectedEmpDetails.contracts?.[0];
+              const hasActiveStatus = selectedEmpDetails.employee.status === 'ACTIVE';
+              const hasValidContract = !!activeContract;
+              const hasValidWage = activeContract && parseFloat(activeContract.wage) > 0;
+              const hasBank = !!selectedEmpDetails.employee.bank_account_number;
+              const hasTaxId = !!selectedEmpDetails.employee.tax_identifier;
+
+              let payrollStatusText = 'Payroll Ready';
+              let payrollStatusBadge = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+              let payrollStatusIcon = '🟢';
+              let payrollReason = null;
+
+              if (!hasActiveStatus) {
+                payrollStatusText = 'Not Ready (Inactive)';
+                payrollStatusBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                payrollStatusIcon = '🔴';
+                payrollReason = 'Employee record is inactive.';
+              } else if (!hasValidContract) {
+                payrollStatusText = 'Not Ready (No Contract)';
+                payrollStatusBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                payrollStatusIcon = '⚠';
+                payrollReason = 'No active employment contract found. Create a contract in the Contracts module.';
+              } else if (!hasValidWage) {
+                payrollStatusText = 'Not Ready (Missing Salary)';
+                payrollStatusBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                payrollStatusIcon = '🔴';
+                payrollReason = 'Contract salary/wage is missing or zero.';
+              }
+
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
+                      <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Employment Details</h5>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">System Role:</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadge(selectedEmpDetails.employee.role_code || 'EMPLOYEE')}`}>
+                            {selectedEmpDetails.employee.role_name || selectedEmpDetails.employee.role_code || 'Employee'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between"><span className="text-slate-500">Department:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.department_name || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Designation:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.designation_name || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Joining Date:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.joining_date}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Manager:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.manager_name || 'None'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Status:</span> <StatusBadge status={selectedEmpDetails.employee.status} size="xs" /></div>
                       </div>
-                      <div className="flex justify-between"><span className="text-slate-500">Department:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.department_name || '—'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Designation:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.designation_name || '—'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Joining Date:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.joining_date}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Manager:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.manager_name || 'None'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Status:</span> <StatusBadge status={selectedEmpDetails.employee.status} size="xs" /></div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
+                      <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Bank & Tax Disbursement</h5>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between"><span className="text-slate-500">Bank Name:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.bank_name || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Account Number:</span> <span className="text-white font-mono">{selectedEmpDetails.employee.bank_account_number || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Routing / Swift:</span> <span className="text-white font-mono">{selectedEmpDetails.employee.bank_ifsc_swift || '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Tax ID (SSN/EIN):</span> <span className="text-white font-mono">{selectedEmpDetails.employee.tax_identifier || '—'}</span></div>
+                      </div>
                     </div>
                   </div>
 
+                  {/* Payroll Readiness & Eligibility Card (§18) */}
                   <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
-                    <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Bank & Tax Disbursement</h5>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between"><span className="text-slate-500">Bank Name:</span> <span className="text-white font-medium">{selectedEmpDetails.employee.bank_name || '—'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Account Number:</span> <span className="text-white font-mono">{selectedEmpDetails.employee.bank_account_number || '—'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Routing / Swift:</span> <span className="text-white font-mono">{selectedEmpDetails.employee.bank_ifsc_swift || '—'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Tax ID (SSN/EIN):</span> <span className="text-white font-mono">{selectedEmpDetails.employee.tax_identifier || '—'}</span></div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Calculator className="w-3.5 h-3.5 text-brand-400" />
+                        Payroll Information & Readiness
+                      </h5>
+                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${payrollStatusBadge}`}>
+                        <span>{payrollStatusIcon}</span>
+                        <span>{payrollStatusText}</span>
+                      </span>
                     </div>
-                  </div>
-                </div>
 
-                {(isHR || isAdmin) && (
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      onClick={() => {
-                        setDetailsModalOpen(false);
-                        handleOpenEdit(selectedEmpDetails.employee);
-                      }}
-                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition-colors"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                      Edit Profile & Contract
-                    </button>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Employment Status</span>
+                        <p className="font-bold text-white mt-0.5">
+                          {hasActiveStatus ? '🟢 Active' : '🔴 Inactive'}
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Contract Status</span>
+                        <p className="font-bold text-white mt-0.5">
+                          {activeContract ? (
+                            activeContract.status === 'ACTIVE' ? '🟢 Active' : `⚪ ${activeContract.status}`
+                          ) : '⚠ No Contract'}
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Contract Salary</span>
+                        <p className="font-bold text-emerald-400 mt-0.5 font-mono">
+                          {hasValidWage ? `$${parseFloat(activeContract.wage).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '🔴 Missing / 0'}
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Salary Structure</span>
+                        <p className="font-semibold text-white mt-0.5 truncate" title={activeContract?.salary_structure_name || 'Standard Structure'}>
+                          {activeContract?.salary_structure_name || 'Standard Structure'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Non-blocking Disbursal Attributes */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-800/80 text-xs">
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/40 border border-slate-800/50">
+                        <span className="text-slate-400">Direct Disbursement Bank:</span>
+                        {hasBank ? (
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1 text-[11px]">
+                            <Check className="w-3 h-3" /> Configured
+                          </span>
+                        ) : (
+                          <span className="text-amber-400 font-medium flex items-center gap-1 text-[11px]">
+                            <AlertTriangle className="w-3 h-3" /> ⚠ Missing (Non-blocking)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/40 border border-slate-800/50">
+                        <span className="text-slate-400">Tax Identification Number:</span>
+                        {hasTaxId ? (
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1 text-[11px]">
+                            <Check className="w-3 h-3" /> Configured
+                          </span>
+                        ) : (
+                          <span className="text-amber-400 font-medium flex items-center gap-1 text-[11px]">
+                            <AlertTriangle className="w-3 h-3" /> ⚠ Missing (Non-blocking)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {payrollReason && (
+                      <div className="mt-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                        <span><strong>Eligibility Action Required:</strong> {payrollReason}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
+
+                  {(isHR || isAdmin) && (
+                    <div className="pt-2 flex justify-end">
+                      <button
+                        onClick={() => {
+                          setDetailsModalOpen(false);
+                          handleOpenEdit(selectedEmpDetails.employee);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition-colors"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        Edit Profile & Contract
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Tab 2: Contracts */}
             {detailsTab === 'contracts' && (

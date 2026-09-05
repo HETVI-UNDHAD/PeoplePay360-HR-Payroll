@@ -233,17 +233,23 @@ export function PayslipPage({ preSelectedPayslipId }) {
             </div>
 
             {/* Employee Info Grid */}
-            <div className="grid grid-cols-2 gap-4 py-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
               <div className="space-y-1.5">
                 <p><strong className="text-slate-500 font-medium">Employee Name:</strong> <span className="font-bold text-slate-900">{selectedPayslipData.payslip.employee_name}</span></p>
                 <p><strong className="text-slate-500 font-medium">Employee Code:</strong> <span className="font-mono font-bold text-slate-900">{selectedPayslipData.payslip.employee_code}</span></p>
-                <p><strong className="text-slate-500 font-medium">Department:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.department_name}</span></p>
-                <p><strong className="text-slate-500 font-medium">Designation:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.designation_name}</span></p>
+                <p><strong className="text-slate-500 font-medium">Department:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.department_name || 'N/A'}</span></p>
+                <p><strong className="text-slate-500 font-medium">Designation:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.designation_name || 'N/A'}</span></p>
+              </div>
+              <div className="space-y-1.5">
+                <p><strong className="text-slate-500 font-medium">Contract Type:</strong> <span className="font-semibold text-slate-900">{selectedPayslipData.payslip.contract_type || 'N/A'}</span></p>
+                <p><strong className="text-slate-500 font-medium">Contract Base Wage:</strong> <span className="font-bold text-slate-900">${parseFloat(selectedPayslipData.payslip.wage || selectedPayslipData.payslip.base_wage || 0).toLocaleString()} / mo</span></p>
+                <p><strong className="text-slate-500 font-medium">Salary Structure:</strong> <span className="text-slate-800 font-medium">{selectedPayslipData.payslip.salary_structure_name || 'Standard Structure'}</span></p>
+                <p><strong className="text-slate-500 font-medium">Attendance:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.present_days} / {selectedPayslipData.payslip.working_days} Days</span></p>
               </div>
               <div className="space-y-1.5">
                 <p><strong className="text-slate-500 font-medium">Bank Name:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.bank_name || 'Direct Deposit'}</span></p>
                 <p><strong className="text-slate-500 font-medium">Account Number:</strong> <span className="font-mono text-slate-800">{selectedPayslipData.payslip.bank_account_number || '••••••••'}</span></p>
-                <p><strong className="text-slate-500 font-medium">Working Days:</strong> <span className="text-slate-800">{selectedPayslipData.payslip.present_days} / {selectedPayslipData.payslip.working_days} Days</span></p>
+                <p><strong className="text-slate-500 font-medium">IFSC / SWIFT:</strong> <span className="font-mono text-slate-800">{selectedPayslipData.payslip.bank_ifsc_swift || 'N/A'}</span></p>
                 <p><strong className="text-slate-500 font-medium">Payment Status:</strong> <span className="font-bold text-emerald-700">{selectedPayslipData.payslip.status}</span></p>
               </div>
             </div>

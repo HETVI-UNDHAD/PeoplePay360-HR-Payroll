@@ -115,7 +115,7 @@ export function Sidebar({ currentTab, setCurrentTab }) {
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-[calc(100vh-4rem)] sticky top-16 select-none">
+    <aside className="w-64 bg-surface border-r border-theme flex flex-col h-[calc(100vh-4rem)] sticky top-16 select-none theme-transition">
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {navItems
           .filter(item => item.show)
@@ -130,19 +130,21 @@ export function Sidebar({ currentTab, setCurrentTab }) {
                 <div key={item.id} className="pt-2 pb-1">
                   <button
                     onClick={() => setPayrollExpanded(!payrollExpanded)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors ${
-                      isChildActive ? 'text-brand-400 bg-brand-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors theme-transition ${
+                      isChildActive
+                        ? 'text-brand-500 bg-brand-500/10'
+                        : 'text-secondary hover:text-primary hover:bg-elevated'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <item.icon className="w-4 h-4 text-brand-400" />
+                      <item.icon className="w-4 h-4 text-brand-500" />
                       <span>{item.label}</span>
                     </div>
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${payrollExpanded ? 'rotate-180' : ''}`} />
                   </button>
 
                   {payrollExpanded && (
-                    <div className="mt-1 pl-4 space-y-1 border-l border-slate-800 ml-4">
+                    <div className="mt-1 pl-4 space-y-1 border-l border-theme ml-4">
                       {visibleChildren.map((child) => {
                         const ChildIcon = child.icon;
                         const active = currentTab === child.id;
@@ -150,13 +152,13 @@ export function Sidebar({ currentTab, setCurrentTab }) {
                           <button
                             key={child.id}
                             onClick={() => setCurrentTab(child.id)}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all theme-transition ${
                               active
                                 ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20 font-semibold'
-                                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                                : 'text-secondary hover:text-primary hover:bg-elevated'
                             }`}
                           >
-                            <ChildIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-slate-500'}`} />
+                            <ChildIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-muted'}`} />
                             <span>{child.label}</span>
                           </button>
                         );
@@ -174,13 +176,13 @@ export function Sidebar({ currentTab, setCurrentTab }) {
               <button
                 key={item.id}
                 onClick={() => setCurrentTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all theme-transition ${
                   isActive
                     ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20 font-semibold'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                    : 'text-secondary hover:text-primary hover:bg-elevated'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-muted'}`} />
                 <span>{item.label}</span>
               </button>
             );
@@ -188,12 +190,12 @@ export function Sidebar({ currentTab, setCurrentTab }) {
       </div>
 
       {/* Role Footer */}
-      <div className="p-3 border-t border-slate-800/80 bg-slate-950/40">
-        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/40">
+      <div className="p-3 border-t border-theme bg-surface2 theme-transition">
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-elevated border border-theme">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <div className="overflow-hidden">
-            <p className="text-[11px] font-bold text-slate-200 truncate">{user?.roleName || user?.role}</p>
-            <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
+            <p className="text-[11px] font-bold text-primary truncate">{user?.roleName || user?.role}</p>
+            <p className="text-[10px] text-secondary truncate">{user?.email}</p>
           </div>
         </div>
       </div>

@@ -113,6 +113,10 @@ export const api = {
   testSalaryEngine: (data) => request('/salary/test-engine', { method: 'POST', body: JSON.stringify(data) }),
 
   // Pay Runs (Payroll Lifecycle: Draft -> Compute -> Validate -> Mark Paid)
+  getPayrollEligibility: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/payroll/eligibility${qs ? `?${qs}` : ''}`);
+  },
   getPayRuns: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/payroll/payruns${qs ? `?${qs}` : ''}`);
@@ -121,7 +125,9 @@ export const api = {
   createPayRun: (data) => request('/payroll/payruns', { method: 'POST', body: JSON.stringify(data) }),
   updatePayRun: (id, data) => request(`/payroll/payruns/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   computePayRun: (id) => request(`/payroll/payruns/${id}/compute`, { method: 'POST' }),
-  validatePayRun: (id) => request(`/payroll/payruns/${id}/validate`, { method: 'POST' }),
+  finalizePayRun: (id) => request(`/payroll/payruns/${id}/finalize`, { method: 'POST' }),
+  validatePayRun: (id) => request(`/payroll/payruns/${id}/finalize`, { method: 'POST' }),
+  recalculatePayRunEmployee: (id, employeeId) => request(`/payroll/payruns/${id}/employees/${employeeId}/recalculate`, { method: 'POST' }),
   markPayRunPaid: (id, paymentData = {}) => request(`/payroll/payruns/${id}/mark-paid`, {
     method: 'POST',
     body: JSON.stringify(paymentData)
@@ -141,6 +147,7 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request(`/payments${qs ? `?${qs}` : ''}`);
   },
+  getPaymentDetails: (id) => request(`/payments/${id}`),
 
   // Dashboard Analytics
   getDashboardStats: (params = {}) => {
