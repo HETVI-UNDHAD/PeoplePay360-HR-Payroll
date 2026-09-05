@@ -8,6 +8,7 @@
     "client": "npm run dev --prefix client",
     "dev": "npm run server & npm run client",
     "db:init": "npm run db:init --prefix server",
+    "db:clean": "npm run db:clean --prefix server",
     "build": "npm run build --prefix client"
   },
   "keywords": ["hr", "payroll", "react", "express", "postgresql"],
