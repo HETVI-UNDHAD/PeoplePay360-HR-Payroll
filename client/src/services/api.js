@@ -79,6 +79,7 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request(`/attendance${qs ? `?${qs}` : ''}`);
   },
+  createAttendance: (data) => request('/attendance', { method: 'POST', body: JSON.stringify(data) }),
   updateAttendance: (id, data) => request(`/attendance/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Time-Off & Leave Allocations

@@ -21,10 +21,14 @@ import { UserManagementPage } from './pages/Users/UserManagementPage';
 import { AuditLogsPage } from './pages/AuditLogs/AuditLogsPage';
 
 function MainLayout() {
-  const { user, loading, notification } = useAuth();
+  const { user, isEmployee, isHR, isAdmin, isPayrollTeam, loading, notification } = useAuth();
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [selectedStructureId, setSelectedStructureId] = useState(null);
   const [preSelectedPayslipId, setPreSelectedPayslipId] = useState(null);
+
+  // Strict role guard: Revert to dashboard if employee attempts to access restricted tabs
+  const employeeAllowedTabs = ['dashboard', 'employees', 'contracts', 'attendance', 'timeoff', 'payslips'];
+  const activeTab = (isEmployee && !employeeAllowedTabs.includes(currentTab)) ? 'dashboard' : currentTab;
 
   if (loading) {
     return (
@@ -64,27 +68,27 @@ function MainLayout() {
       {/* Main Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <Sidebar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+        <Sidebar currentTab={activeTab} setCurrentTab={setCurrentTab} />
 
         {/* Dynamic Page Container */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-7xl mx-auto">
-            {currentTab === 'dashboard' && <Dashboard onNavigate={(tab) => setCurrentTab(tab)} />}
-            {currentTab === 'employees' && <EmployeePage />}
-            {currentTab === 'contracts' && <ContractPage />}
-            {currentTab === 'schedules' && <SchedulePage />}
-            {currentTab === 'attendance' && <AttendancePage />}
-            {currentTab === 'timeoff' && <TimeOffPage />}
-            {currentTab === 'allocations' && <TimeOffPage />}
-            {currentTab === 'salary-structures' && <SalaryStructuresPage onSelectStructure={handleSelectStructure} />}
-            {currentTab === 'salary-rules' && <SalaryRulesPage selectedStructureId={selectedStructureId} />}
-            {currentTab === 'payruns' && <PayRunPage onSelectPayslip={handleSelectPayslip} />}
-            {currentTab === 'payslips' && <PayslipPage preSelectedPayslipId={preSelectedPayslipId} />}
-            {currentTab === 'payments' && <PaymentPage />}
-            {currentTab === 'departments' && <DepartmentPage />}
-            {currentTab === 'reports' && <ReportsPage />}
-            {currentTab === 'users' && <UserManagementPage />}
-            {currentTab === 'audit' && <AuditLogsPage />}
+            {activeTab === 'dashboard' && <Dashboard onNavigate={(tab) => setCurrentTab(tab)} />}
+            {activeTab === 'employees' && <EmployeePage />}
+            {activeTab === 'contracts' && <ContractPage />}
+            {activeTab === 'schedules' && <SchedulePage />}
+            {activeTab === 'attendance' && <AttendancePage />}
+            {activeTab === 'timeoff' && <TimeOffPage />}
+            {activeTab === 'allocations' && <TimeOffPage />}
+            {activeTab === 'salary-structures' && <SalaryStructuresPage onSelectStructure={handleSelectStructure} />}
+            {activeTab === 'salary-rules' && <SalaryRulesPage selectedStructureId={selectedStructureId} />}
+            {activeTab === 'payruns' && <PayRunPage onSelectPayslip={handleSelectPayslip} />}
+            {activeTab === 'payslips' && <PayslipPage preSelectedPayslipId={preSelectedPayslipId} />}
+            {activeTab === 'payments' && <PaymentPage />}
+            {activeTab === 'departments' && <DepartmentPage />}
+            {activeTab === 'reports' && <ReportsPage />}
+            {activeTab === 'users' && <UserManagementPage />}
+            {activeTab === 'audit' && <AuditLogsPage />}
           </div>
         </main>
       </div>

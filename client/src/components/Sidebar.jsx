@@ -66,7 +66,7 @@ export function Sidebar({ currentTab, setCurrentTab }) {
       id: 'allocations',
       label: 'Leave Allocations',
       icon: Award,
-      show: true
+      show: isHR || isAdmin
     },
     // Payroll Group
     {

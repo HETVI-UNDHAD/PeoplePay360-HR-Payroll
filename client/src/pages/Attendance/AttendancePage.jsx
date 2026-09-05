@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Building2,
   Edit,
+  Plus,
   ArrowRight
 } from 'lucide-react';
 
@@ -20,6 +21,7 @@ export function AttendancePage() {
   const { user, isHR, isAdmin, isEmployee, showToast } = useAuth();
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [todayAttendance, setTodayAttendance] = useState(null);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [punchLoading, setPunchLoading] = useState(false);
 
@@ -27,6 +29,17 @@ export function AttendancePage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [search, setSearch] = useState('');
   const [punchNotes, setPunchNotes] = useState('');
+
+  // Create Manual Entry Modal
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    employee_id: user?.employeeId || '',
+    date: new Date().toISOString().split('T')[0],
+    check_in: '09:00',
+    check_out: '17:00',
+    worked_hours: 8,
+    notes: ''
+  });
 
   // Correction Modal
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -36,13 +49,20 @@ export function AttendancePage() {
   const fetchAttendance = async () => {
     try {
       setLoading(true);
-      const [allRes, todayRes] = await Promise.all([
+      const [allRes, todayRes, empsRes] = await Promise.all([
         api.getAttendance({ status: filterStatus }),
-        user?.employeeId ? api.getTodayAttendance() : Promise.resolve({ success: true, attendance: null })
+        user?.employeeId ? api.getTodayAttendance() : Promise.resolve({ success: true, attendance: null }),
+        (!isEmployee && (isHR || isAdmin)) ? api.getEmployees() : Promise.resolve({ success: true, employees: [] })
       ]);
 
       if (allRes.success) setAttendanceRecords(allRes.attendance);
       if (todayRes.success) setTodayAttendance(todayRes.attendance);
+      if (empsRes.success) {
+        setEmployees(empsRes.employees);
+        if (empsRes.employees.length > 0 && !createForm.employee_id) {
+          setCreateForm(prev => ({ ...prev, employee_id: user?.employeeId || empsRes.employees[0].id }));
+        }
+      }
     } catch (err) {
       console.error('Fetch attendance error:', err);
     } finally {
@@ -70,6 +90,26 @@ export function AttendancePage() {
       showToast(err.message, 'error');
     } finally {
       setPunchLoading(false);
+    }
+  };
+
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.createAttendance(createForm);
+      showToast(res.message || 'Attendance entry logged successfully', 'success');
+      setCreateModalOpen(false);
+      setCreateForm({
+        employee_id: user?.employeeId || (employees[0]?.id || ''),
+        date: new Date().toISOString().split('T')[0],
+        check_in: '09:00',
+        check_out: '17:00',
+        worked_hours: 8,
+        notes: ''
+      });
+      fetchAttendance();
+    } catch (err) {
+      showToast(err.message, 'error');
     }
   };
 
@@ -102,9 +142,20 @@ export function AttendancePage() {
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Attendance & Time Tracking</h2>
           <p className="text-xs text-slate-400 mt-1">
-            Real-time biometric & web punch logging, worked hours calculations, and HR compliance corrections.
+            Real-time biometric & web punch logging, worked hours calculations, and attendance entry tracking.
           </p>
         </div>
+
+        <button
+          onClick={() => {
+            setCreateForm(prev => ({ ...prev, employee_id: user?.employeeId || (employees[0]?.id || '') }));
+            setCreateModalOpen(true);
+          }}
+          className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2 self-start sm:self-auto"
+        >
+          <Plus className="w-4 h-4" />
+          Log Attendance Entry
+        </button>
       </div>
 
       {/* Employee Punch Card (Shown prominently for Employees or users with linked employee profiles) */}
@@ -262,6 +313,104 @@ export function AttendancePage() {
         </div>
       </div>
 
+      {/* Create Manual Attendance Entry Modal */}
+      <Modal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        title="Log Attendance Entry"
+        subtitle="Create an attendance entry with check-in, check-out, and worked hours"
+      >
+        <form onSubmit={handleCreateSubmit} className="space-y-4">
+          {(!isEmployee && (isHR || isAdmin)) && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Employee *</label>
+              <select
+                required
+                value={createForm.employee_id}
+                onChange={e => setCreateForm({ ...createForm, employee_id: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+              >
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.first_name} {emp.last_name} ({emp.employee_code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Date *</label>
+            <input
+              type="date"
+              required
+              value={createForm.date}
+              onChange={e => setCreateForm({ ...createForm, date: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Check In Time</label>
+              <input
+                type="time"
+                value={createForm.check_in}
+                onChange={e => setCreateForm({ ...createForm, check_in: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Check Out Time</label>
+              <input
+                type="time"
+                value={createForm.check_out}
+                onChange={e => setCreateForm({ ...createForm, check_out: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Worked Hours</label>
+            <input
+              type="number"
+              step="0.5"
+              value={createForm.worked_hours}
+              onChange={e => setCreateForm({ ...createForm, worked_hours: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Notes / Description</label>
+            <textarea
+              rows="2"
+              placeholder="e.g. Regular shift, field visit, missed punch..."
+              value={createForm.notes}
+              onChange={e => setCreateForm({ ...createForm, notes: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500"
+            ></textarea>
+          </div>
+
+          <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setCreateModalOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/25"
+            >
+              Save Attendance Entry
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       {/* HR Attendance Correction Modal */}
       <Modal
         isOpen={editModalOpen}
@@ -278,34 +427,34 @@ export function AttendancePage() {
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
             >
               <option value="PRESENT">Present (Full Day)</option>
+              <option value="LATE">Late Entry</option>
               <option value="HALF_DAY">Half Day</option>
-              <option value="LATE">Late Check-in</option>
               <option value="ABSENT">Absent</option>
-              <option value="LEAVE">Approved Leave</option>
+              <option value="LEAVE">On Leave</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Worked Hours</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Corrected Worked Hours</label>
             <input
               type="number"
-              step="0.1"
+              step="0.5"
               required
               value={editForm.worked_hours}
               onChange={e => setEditForm({ ...editForm, worked_hours: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-bold"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Correction Notes / Reason</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">HR Note / Justification</label>
             <textarea
-              rows={2}
+              rows="3"
+              placeholder="Reason for correction..."
               value={editForm.notes}
               onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
-              placeholder="e.g. Approved adjustment for client visit..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white"
-            />
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500"
+            ></textarea>
           </div>
 
           <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
@@ -320,7 +469,7 @@ export function AttendancePage() {
               type="submit"
               className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-500/25"
             >
-              Update Attendance Record
+              Apply Correction
             </button>
           </div>
         </form>

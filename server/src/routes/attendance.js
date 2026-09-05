@@ -202,6 +202,64 @@ router.get('/', async (req, res) => {
   }
 });
 
+// POST /api/attendance - Create attendance entry (Employee for self, HR/Admin for any)
+router.post('/', async (req, res) => {
+  try {
+    let { employee_id, date, check_in, check_out, worked_hours, status, notes } = req.body;
+    const userRole = req.user.role;
+    const userEmpId = req.user.employeeId;
+
+    if (userRole === ROLES.EMPLOYEE) {
+      employee_id = userEmpId;
+    } else if (!employee_id) {
+      employee_id = userEmpId;
+    }
+
+    if (!employee_id || !date) {
+      return res.status(400).json({ success: false, message: 'Employee ID and date are required' });
+    }
+
+    // Calculate worked hours if check_in and check_out provided
+    let calculatedHours = parseFloat(worked_hours) || 8.0;
+    if (check_in && check_out) {
+      const inTime = new Date(`${date}T${check_in}`);
+      const outTime = new Date(`${date}T${check_out}`);
+      if (!isNaN(inTime) && !isNaN(outTime)) {
+        calculatedHours = Math.max(0, Math.round(((outTime - inTime) / (1000 * 60 * 60)) * 100) / 100);
+      }
+    }
+
+    const entryStatus = status || (calculatedHours >= 8 ? 'PRESENT' : calculatedHours >= 4 ? 'HALF_DAY' : 'PRESENT');
+    const attId = uuidv4();
+    const checkInTimestamp = check_in ? `${date} ${check_in}` : `${date} 09:00:00`;
+    const checkOutTimestamp = check_out ? `${date} ${check_out}` : null;
+
+    // Check existing for this date
+    const existing = await query('SELECT id FROM attendance WHERE employee_id = $1 AND date = $2', [employee_id, date]);
+    if (existing.rows.length > 0) {
+      await query(
+        `UPDATE attendance SET 
+          check_in = $1, check_out = $2, worked_hours = $3, status = $4, notes = $5, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $6`,
+        [checkInTimestamp, checkOutTimestamp, calculatedHours, entryStatus, notes || null, existing.rows[0].id]
+      );
+      return res.json({ success: true, message: 'Attendance entry updated successfully', attendanceId: existing.rows[0].id });
+    }
+
+    await query(
+      `INSERT INTO attendance (id, employee_id, date, check_in, check_out, worked_hours, status, notes, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [attId, employee_id, date, checkInTimestamp, checkOutTimestamp, calculatedHours, entryStatus, notes || null]
+    );
+
+    await logAudit(req.user.id, 'CREATE_ATTENDANCE_ENTRY', 'attendance', attId, { date, worked_hours: calculatedHours }, req);
+    res.status(201).json({ success: true, message: 'Attendance entry recorded successfully', attendanceId: attId });
+  } catch (err) {
+    console.error('Create attendance entry error:', err);
+    res.status(500).json({ success: false, message: 'Failed to create attendance entry' });
+  }
+});
+
 // PUT /api/attendance/:id - Update / Correct Attendance (HR_MANAGER, ADMIN)
 router.put('/:id', checkRole(ROLES.ADMIN, ROLES.HR_MANAGER), async (req, res) => {
   try {
