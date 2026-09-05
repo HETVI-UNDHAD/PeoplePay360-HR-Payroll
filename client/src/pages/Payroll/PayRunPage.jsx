@@ -1372,9 +1372,9 @@ export function PayRunPage({ onSelectPayslip }) {
                               <div className="flex items-center gap-3 text-[11px] text-slate-300 mt-1">
                                 <span>Dept: <strong className="text-white">{emp.department_name || 'General'}</strong></span>
                                 <span>•</span>
-                                <span>Wage: <strong className="text-emerald-400 font-mono font-bold">${parseFloat(emp.contract_wage || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                                <span>Wage: <strong className="text-emerald-400 font-mono font-bold">${parseFloat(emp.contract_wage || emp.contract?.wage || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
                                 <span>•</span>
-                                <span className="truncate max-w-[140px] text-slate-300">{emp.structure_name || 'Standard Structure'}</span>
+                                <span className="truncate max-w-[140px] text-slate-300">{emp.structure_name || emp.contract?.salary_structure_name || 'Standard Structure'}</span>
                               </div>
                               {emp.warnings && emp.warnings.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -1424,7 +1424,7 @@ export function PayRunPage({ onSelectPayslip }) {
                           </div>
                           <div className="text-[11px] text-rose-300 mt-1 flex items-center gap-1">
                             <AlertCircle className="w-3 h-3 text-rose-400 shrink-0" />
-                            <span><strong>Reason:</strong> {emp.blocking_reason}</span>
+                            <span><strong>Reason:</strong> {emp.blocking_reason || (emp.blocking_reasons && emp.blocking_reasons.join(' • ')) || 'Missing contract or required bank/salary configuration.'}</span>
                           </div>
                         </div>
                         <span className="text-[10px] text-slate-400 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">

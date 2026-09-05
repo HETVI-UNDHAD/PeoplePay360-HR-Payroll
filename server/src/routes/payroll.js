@@ -293,9 +293,9 @@ router.get('/eligibility', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAY
         blockingReasons.push(`Payslip already exists for this period in pay run "${dupRes.rows[0].payroll_name}".`);
       }
 
-      // 3. Non-blocking warnings
-      if (!emp.bank_account_number) {
-        warnings.push('Missing bank account number for direct disbursement.');
+      // 3. Bank Account Validation (Required for salary disbursement)
+      if (!emp.bank_account_number || !emp.bank_name) {
+        blockingReasons.push('Missing bank account details (Bank Name / Account #) required for salary disbursement.');
       }
       if (!emp.tax_identifier) {
         warnings.push('Missing tax identification number.');
@@ -312,6 +312,9 @@ router.get('/eligibility', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAY
         email: emp.email,
         department_name: emp.department_name,
         designation_name: emp.designation_name,
+        contract_wage: matchedContract ? parseFloat(matchedContract.wage || 0) : 0,
+        structure_name: matchedContract ? matchedContract.salary_structure_name : null,
+        contract_type: matchedContract ? matchedContract.contract_type : null,
         contract: matchedContract ? {
           id: matchedContract.id,
           wage: parseFloat(matchedContract.wage || 0),
@@ -322,6 +325,7 @@ router.get('/eligibility', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, ROLES.PAY
           salary_structure_id: matchedContract.salary_structure_id
         } : null,
         is_payroll_ready: isReady,
+        blocking_reason: blockingReasons.join(' • '),
         blocking_reasons: blockingReasons,
         warnings: warnings
       };
@@ -758,9 +762,11 @@ router.post('/payruns/:id/compute', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, 
       );
 
       if (contractRes.rows.length === 0) {
-        throw new Error(
-          `Employee ${item.first_name} ${item.last_name} (${item.employee_code}) has no active contract for period ${toISODateString(payrun.period_start)} to ${toISODateString(payrun.period_end)}.`
-        );
+        await query(`UPDATE payrolls SET status = $1 WHERE id = $2`, [previousStatus || 'DRAFT', id]);
+        return res.status(400).json({
+          success: false,
+          message: `Cannot compute payroll: Employee ${item.first_name} ${item.last_name} (${item.employee_code}) has no active contract for period ${toISODateString(payrun.period_start)} to ${toISODateString(payrun.period_end)}. Please assign an active contract or remove them from the pay run batch.`
+        });
       }
 
       const contract = contractRes.rows[0];
@@ -773,7 +779,11 @@ router.post('/payruns/:id/compute', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, 
       );
 
       if (rulesRes.rows.length === 0) {
-        throw new Error(`Salary structure for employee ${item.first_name} ${item.last_name} has no active rules defined.`);
+        await query(`UPDATE payrolls SET status = $1 WHERE id = $2`, [previousStatus || 'DRAFT', id]);
+        return res.status(400).json({
+          success: false,
+          message: `Cannot compute payroll: Salary structure for employee ${item.first_name} ${item.last_name} (${item.employee_code}) has no active rules defined.`
+        });
       }
 
       // 3. Determine dynamic working days in period from schedule
@@ -823,7 +833,8 @@ router.post('/payruns/:id/compute', checkRole(ROLES.ADMIN, ROLES.PAYROLL_ADMIN, 
       const payslipId = uuidv4();
       const periodStartStr = payrun.period_start instanceof Date ? payrun.period_start.toISOString().split('T')[0] : String(payrun.period_start);
       const periodEndStr = payrun.period_end instanceof Date ? payrun.period_end.toISOString().split('T')[0] : String(payrun.period_end);
-      const payslipNum = `PAY-${periodStartStr.substring(0, 7).replace('-', '')}-${(item.employee_code || item.emp_id).replace('EMP-', '')}`;
+      const empCodeClean = (item.employee_code || item.emp_id).replace('EMP-', '');
+      const payslipNum = `PAY-${periodStartStr.substring(0, 7).replace('-', '')}-${empCodeClean}-${id.slice(0, 4)}`;
 
       await query(
         `INSERT INTO payslips (
