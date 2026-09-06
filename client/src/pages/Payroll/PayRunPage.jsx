@@ -1220,6 +1220,84 @@ export function PayRunPage({ onSelectPayslip }) {
       >
         {wizardStep === 1 ? (
           <div className="space-y-4">
+            {/* Distribution Approach Selector */}
+            <div>
+              <label className="block text-xs font-semibold text-primary mb-1.5">Salary Distribution Approach *</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  {
+                    id: 'MONTHLY',
+                    title: '📅 Monthly Standard Payroll',
+                    desc: 'Calendar month regular distribution with statutory rules'
+                  },
+                  {
+                    id: 'ATTENDANCE_ACTUAL',
+                    title: '⏱️ Attendance & Timesheet Based',
+                    desc: 'Pay strictly by actual days worked, leave deductions & overtime'
+                  },
+                  {
+                    id: 'BIWEEKLY',
+                    title: '📆 Bi-Weekly / 15-Day Cycle',
+                    desc: 'Fortnightly distribution (1st–15th or 16th–End)'
+                  },
+                  {
+                    id: 'DEPARTMENT_BATCH',
+                    title: '🏢 Department-Wise Batch',
+                    desc: 'Targeted distribution for a specific department group'
+                  }
+                ].map((mode) => (
+                  <div
+                    key={mode.id}
+                    onClick={() => {
+                      const now = new Date();
+                      let pStart = createForm.period_start;
+                      let pEnd = createForm.period_end;
+                      let runName = createForm.name;
+
+                      if (mode.id === 'MONTHLY') {
+                        pStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                        pEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                        runName = `Monthly Pay Run - ${now.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+                      } else if (mode.id === 'BIWEEKLY') {
+                        if (now.getDate() <= 15) {
+                          pStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                          pEnd = new Date(now.getFullYear(), now.getMonth(), 15).toISOString().split('T')[0];
+                          runName = `Bi-Weekly Pay Run (H1) - ${now.toLocaleString('default', { month: 'short', year: 'numeric' })}`;
+                        } else {
+                          pStart = new Date(now.getFullYear(), now.getMonth(), 16).toISOString().split('T')[0];
+                          pEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                          runName = `Bi-Weekly Pay Run (H2) - ${now.toLocaleString('default', { month: 'short', year: 'numeric' })}`;
+                        }
+                      } else if (mode.id === 'ATTENDANCE_ACTUAL') {
+                        pStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                        pEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                        runName = `Timesheet & Attendance Pay Run - ${now.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+                      } else if (mode.id === 'DEPARTMENT_BATCH') {
+                        runName = `Department Pay Run - ${now.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+                      }
+
+                      setCreateForm(prev => ({
+                        ...prev,
+                        distribution_mode: mode.id,
+                        period_start: pStart,
+                        period_end: pEnd,
+                        name: runName
+                      }));
+                    }}
+                    className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                      (createForm.distribution_mode || 'MONTHLY') === mode.id
+                        ? 'bg-brand-950/70 border-brand-500 text-white shadow-sm ring-1 ring-brand-500/50'
+                        : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-white">{mode.title}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{mode.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Pay Run Title */}
             <div>
               <label className="block text-xs font-semibold text-primary mb-1">Pay Run Name *</label>
               <input
@@ -1227,9 +1305,64 @@ export function PayRunPage({ onSelectPayslip }) {
                 required
                 value={createForm.name}
                 onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 font-medium"
               />
             </div>
+
+            {/* Quick Period Presets */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mr-1">Period Presets:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  const pStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                  const pEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                  setCreateForm(prev => ({ ...prev, period_start: pStart, period_end: pEnd }));
+                }}
+                className="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] text-slate-300 border border-slate-800 font-medium"
+              >
+                Current Month
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  const pStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+                  const pEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+                  setCreateForm(prev => ({ ...prev, period_start: pStart, period_end: pEnd }));
+                }}
+                className="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] text-slate-300 border border-slate-800 font-medium"
+              >
+                Previous Month
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  const pStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                  const pEnd = new Date(now.getFullYear(), now.getMonth(), 15).toISOString().split('T')[0];
+                  setCreateForm(prev => ({ ...prev, period_start: pStart, period_end: pEnd }));
+                }}
+                className="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] text-slate-300 border border-slate-800 font-medium"
+              >
+                1st – 15th (H1)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  const pStart = new Date(now.getFullYear(), now.getMonth(), 16).toISOString().split('T')[0];
+                  const pEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                  setCreateForm(prev => ({ ...prev, period_start: pStart, period_end: pEnd }));
+                }}
+                className="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] text-slate-300 border border-slate-800 font-medium"
+              >
+                16th – End (H2)
+              </button>
+            </div>
+
+            {/* Date Range Inputs */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-primary mb-1">Period Start *</label>
@@ -1238,7 +1371,7 @@ export function PayRunPage({ onSelectPayslip }) {
                   required
                   value={createForm.period_start}
                   onChange={e => setCreateForm({ ...createForm, period_start: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 font-mono"
                 />
               </div>
               <div>
@@ -1248,12 +1381,14 @@ export function PayRunPage({ onSelectPayslip }) {
                   required
                   value={createForm.period_end}
                   onChange={e => setCreateForm({ ...createForm, period_end: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 font-mono"
                 />
               </div>
             </div>
+
+            {/* Salary Structure */}
             <div>
-              <label className="block text-xs font-semibold text-primary mb-1">Salary Structure</label>
+              <label className="block text-xs font-semibold text-primary mb-1">Default Salary Structure</label>
               <select
                 value={createForm.salary_structure_id}
                 onChange={e => setCreateForm({ ...createForm, salary_structure_id: e.target.value })}
@@ -1264,16 +1399,19 @@ export function PayRunPage({ onSelectPayslip }) {
                 ))}
               </select>
             </div>
+
+            {/* Notes */}
             <div>
               <label className="block text-xs font-semibold text-primary mb-1">Notes / Description</label>
               <textarea
                 rows={2}
                 value={createForm.notes}
                 onChange={e => setCreateForm({ ...createForm, notes: e.target.value })}
-                placeholder="Optional batch notes..."
+                placeholder="e.g. Regular monthly payroll cycle with attendance deductions..."
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
               />
             </div>
+
             <div className="pt-4 border-t border-theme flex justify-end gap-3">
               <button
                 type="button"
@@ -1296,7 +1434,7 @@ export function PayRunPage({ onSelectPayslip }) {
                 }}
                 className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center gap-2"
               >
-                Continue <ArrowRight className="w-3.5 h-3.5" />
+                Continue to Employee Selection <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
