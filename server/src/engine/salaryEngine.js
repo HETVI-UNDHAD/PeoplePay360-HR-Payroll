@@ -173,14 +173,10 @@ function computeSalary(contract, rules = [], attendanceData = {}) {
       context.TOTAL_DEDUCTIONS = totalDeductions;
     }
 
-    const displayName = (isEarning && attendanceRatio < 1 && ruleCode !== 'OT' && ruleCode !== 'OVERTIME')
-      ? `${rule.name} (${effectiveDays}/${workingDays} Days)`
-      : rule.name;
-
     lines.push({
       salaryRuleId: rule.id || null,
       ruleCode: rule.code,
-      ruleName: displayName,
+      ruleName: rule.name,
       category: rule.category,
       sequence: rule.sequence || 10,
       computationType: rule.computation_type,
@@ -194,7 +190,7 @@ function computeSalary(contract, rules = [], attendanceData = {}) {
     lines.push({
       salaryRuleId: null,
       ruleCode: 'OVERTIME',
-      ruleName: `Overtime / Extra Hours Pay (${overtimeHours} hrs @ ₹${overtimeHourlyRate.toFixed(2)}/hr)`,
+      ruleName: `Overtime Pay (${overtimeHours} hrs @ ₹${overtimeHourlyRate.toFixed(2)}/hr)`,
       category: 'ALLOWANCE',
       sequence: 85,
       computationType: 'HOURLY',
@@ -206,12 +202,12 @@ function computeSalary(contract, rules = [], attendanceData = {}) {
     context.OVERTIME = overtimeAmount;
   }
 
-  // If there are unpaid leaves / unworked absent days and no manual deduction rule, add as deduction line
+  // If there are unpaid leaves / unworked absent days and no manual deduction rule, add as explicit LOP deduction
   if (totalUnpaidDays > 0 && !hasExplicitUnpaidLeaveRule && unpaidLeaveAmount > 0) {
     lines.push({
       salaryRuleId: null,
       ruleCode: 'UNPAID_LEAVE',
-      ruleName: `Unpaid Leave / LOP Deduction (${totalUnpaidDays} days @ ₹${dailyRate.toFixed(2)}/day)`,
+      ruleName: `Loss of Pay (LOP) / Unpaid Leave (${totalUnpaidDays} days @ ₹${dailyRate.toFixed(2)}/day)`,
       category: 'DEDUCTION',
       sequence: 95,
       computationType: 'DAILY',
