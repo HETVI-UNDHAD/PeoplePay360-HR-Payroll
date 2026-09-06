@@ -152,6 +152,12 @@ function computeSalary(contract, rules = [], attendanceData = {}) {
       amount = evaluateExpression(rule.formula, context);
     }
 
+    // Apply attendance pro-rata factor to earnings (Basic & Allowances) if payable days < working days
+    const isEarning = (rule.category === 'BASIC' || rule.category === 'ALLOWANCE');
+    if (isEarning && attendanceRatio < 1 && ruleCode !== 'OT' && ruleCode !== 'OVERTIME') {
+      amount = amount * attendanceRatio;
+    }
+
     // Round to 2 decimals
     amount = Math.round(amount * 100) / 100;
 
@@ -167,10 +173,14 @@ function computeSalary(contract, rules = [], attendanceData = {}) {
       context.TOTAL_DEDUCTIONS = totalDeductions;
     }
 
+    const displayName = (isEarning && attendanceRatio < 1 && ruleCode !== 'OT' && ruleCode !== 'OVERTIME')
+      ? `${rule.name} (${effectiveDays}/${workingDays} Days)`
+      : rule.name;
+
     lines.push({
       salaryRuleId: rule.id || null,
       ruleCode: rule.code,
-      ruleName: rule.name,
+      ruleName: displayName,
       category: rule.category,
       sequence: rule.sequence || 10,
       computationType: rule.computation_type,
