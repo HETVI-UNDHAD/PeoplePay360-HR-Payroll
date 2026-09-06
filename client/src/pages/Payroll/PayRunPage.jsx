@@ -937,7 +937,7 @@ export function PayRunPage({ onSelectPayslip }) {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-emerald-400">
-                            ${parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            ₹{parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                           <p className="text-[10px] text-text-secondary">{p.payment_date}</p>
                         </div>
@@ -976,7 +976,7 @@ export function PayRunPage({ onSelectPayslip }) {
               <div>
                 <span className="text-[10px] text-text-secondary uppercase">Contract Wage</span>
                 <p className="font-bold text-brand-400 mt-0.5">
-                  ${parseFloat(selectedEmployeeBreakdown.contract_wage || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ₹{parseFloat(selectedEmployeeBreakdown.contract_wage || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
               <div>
@@ -1015,9 +1015,9 @@ export function PayRunPage({ onSelectPayslip }) {
                   <p className="font-bold text-brand-400 text-sm mt-0.5">{selectedEmployeeBreakdown.payable_days}</p>
                 </div>
               </div>
-              <p className="text-[11px] text-text-secondary pt-1">
-                Formula applied: <code className="text-brand-300 font-mono">min(Working Days, Present Days + Paid Leave)</code>. Unpaid absences adjust wage pro-rata.
-              </p>
+              <div className="bg-surface-elevated p-2 rounded-xl border border-border-color text-[11px] text-text-secondary">
+                Formula applied: <code className="text-brand-300 font-mono">min(Working Days, Present Days + Paid Leave)</code>. Base Wage ₹{parseFloat(selectedEmployeeBreakdown.contract_wage || 0).toLocaleString()} / {selectedEmployeeBreakdown.working_days}d = <strong className="text-text-primary">₹{(parseFloat(selectedEmployeeBreakdown.contract_wage || 0) / Math.max(1, parseFloat(selectedEmployeeBreakdown.working_days || 22))).toFixed(2)}/day</strong>. Calculated for <strong className="text-emerald-400">{selectedEmployeeBreakdown.payable_days} days</strong>.
+              </div>
             </div>
 
             {/* Earnings & Deductions Dual Grid */}
@@ -1027,7 +1027,7 @@ export function PayRunPage({ onSelectPayslip }) {
                 <div className="flex items-center justify-between">
                   <h5 className="font-bold text-emerald-400 uppercase tracking-wider text-[11px]">Gross Earnings</h5>
                   <span className="font-bold text-emerald-400 text-sm">
-                    ${parseFloat(selectedEmployeeBreakdown.gross_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₹{parseFloat(selectedEmployeeBreakdown.gross_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="space-y-1.5 pt-1">
@@ -1044,7 +1044,7 @@ export function PayRunPage({ onSelectPayslip }) {
                             <p className="text-[10px] text-text-secondary">{line.computation_type} {line.rate ? `• ${line.rate}%` : ''}</p>
                           </div>
                           <span className="font-bold text-text-primary">
-                            ${parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            ₹{parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ))
@@ -1057,7 +1057,7 @@ export function PayRunPage({ onSelectPayslip }) {
                 <div className="flex items-center justify-between">
                   <h5 className="font-bold text-rose-400 uppercase tracking-wider text-[11px]">Total Deductions</h5>
                   <span className="font-bold text-rose-400 text-sm">
-                    -${parseFloat(selectedEmployeeBreakdown.total_deductions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    -₹{parseFloat(selectedEmployeeBreakdown.total_deductions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="space-y-1.5 pt-1">
@@ -1074,7 +1074,7 @@ export function PayRunPage({ onSelectPayslip }) {
                             <p className="text-[10px] text-text-secondary">{line.computation_type} {line.rate ? `• ${line.rate}%` : ''}</p>
                           </div>
                           <span className="font-bold text-rose-400">
-                            -${parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            -₹{parseFloat(line.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ))
@@ -1088,11 +1088,11 @@ export function PayRunPage({ onSelectPayslip }) {
               <div>
                 <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Final Net Pay Due</span>
                 <p className="text-[11px] text-text-secondary mt-0.5">
-                  Gross Earnings (${parseFloat(selectedEmployeeBreakdown.gross_salary || 0).toLocaleString()}) − Total Deductions (${parseFloat(selectedEmployeeBreakdown.total_deductions || 0).toLocaleString()})
+                  Gross Earnings (₹{parseFloat(selectedEmployeeBreakdown.gross_salary || 0).toLocaleString()}) − Total Deductions (₹{parseFloat(selectedEmployeeBreakdown.total_deductions || 0).toLocaleString()})
                 </p>
               </div>
               <p className="text-xl font-extrabold text-emerald-400">
-                ${parseFloat(selectedEmployeeBreakdown.net_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₹{parseFloat(selectedEmployeeBreakdown.net_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
 

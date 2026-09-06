@@ -152,14 +152,16 @@ function computeSalary(contract, rules = [], attendanceData = {}) {
       amount = evaluateExpression(rule.formula, context);
     }
 
+    const fullAmount = Math.round(amount * 100) / 100;
+    let earnedAmount = fullAmount;
+
     // Apply attendance pro-rata factor to earnings (Basic & Allowances) if payable days < working days
     const isEarning = (rule.category === 'BASIC' || rule.category === 'ALLOWANCE');
     if (isEarning && attendanceRatio < 1 && ruleCode !== 'OT' && ruleCode !== 'OVERTIME') {
-      amount = amount * attendanceRatio;
+      earnedAmount = Math.round((fullAmount * attendanceRatio) * 100) / 100;
     }
 
-    // Round to 2 decimals
-    amount = Math.round(amount * 100) / 100;
+    amount = earnedAmount;
 
     // Store in context for subsequent rules
     context[ruleCode] = amount;
@@ -173,15 +175,22 @@ function computeSalary(contract, rules = [], attendanceData = {}) {
       context.TOTAL_DEDUCTIONS = totalDeductions;
     }
 
+    const displayName = (isEarning && attendanceRatio < 1 && ruleCode !== 'OT' && ruleCode !== 'OVERTIME')
+      ? `${rule.name} (${effectiveDays.toFixed(1)} / ${workingDays.toFixed(1)} Days Worked)`
+      : rule.name;
+
     lines.push({
       salaryRuleId: rule.id || null,
       ruleCode: rule.code,
-      ruleName: rule.name,
+      ruleName: displayName,
       category: rule.category,
       sequence: rule.sequence || 10,
       computationType: rule.computation_type,
       rate: rate,
-      amount: amount
+      amount: amount,
+      full_amount: fullAmount,
+      days_worked: effectiveDays,
+      working_days: workingDays
     });
   }
 
@@ -195,7 +204,10 @@ function computeSalary(contract, rules = [], attendanceData = {}) {
       sequence: 85,
       computationType: 'HOURLY',
       rate: overtimeMultiplier,
-      amount: overtimeAmount
+      amount: overtimeAmount,
+      full_amount: overtimeAmount,
+      days_worked: effectiveDays,
+      working_days: workingDays
     });
     grossSalary += overtimeAmount;
     context.GROSS = grossSalary;

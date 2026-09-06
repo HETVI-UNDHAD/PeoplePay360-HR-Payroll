@@ -292,8 +292,8 @@ export function PayslipPage({ preSelectedPayslipId }) {
               </div>
 
               {/* Attendance & Leave Accounting Card */}
-              <div className="p-3.5 bg-slate-100 rounded-xl border border-slate-200 text-xs">
-                <div className="flex items-center justify-between mb-2.5">
+              <div className="p-3.5 bg-slate-100 rounded-xl border border-slate-200 text-xs space-y-2.5">
+                <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
                     Attendance & Leave Accounting Breakdown
                   </span>
@@ -327,6 +327,16 @@ export function PayslipPage({ preSelectedPayslipId }) {
                     </span>
                   </div>
                 </div>
+
+                {/* Day-Rate & Present Days Pro-Rata Formula */}
+                <div className="bg-white p-2 rounded-lg border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-600 gap-1">
+                  <span>
+                    <strong>Rate:</strong> ₹{parseFloat(selectedPayslipData.payslip.wage || selectedPayslipData.payslip.base_wage || 0).toLocaleString()} / {selectedPayslipData.payslip.working_days} days = <strong className="text-slate-900 font-mono">₹{(parseFloat(selectedPayslipData.payslip.wage || selectedPayslipData.payslip.base_wage || 0) / Math.max(1, parseFloat(selectedPayslipData.payslip.working_days || 22))).toFixed(2)}/day</strong>
+                  </span>
+                  <span className="text-slate-700 font-medium">
+                    ✓ Salary earned for <strong className="text-emerald-700 font-bold">{(parseFloat(selectedPayslipData.payslip.present_days || 0) + parseFloat(selectedPayslipData.payslip.paid_leave_days || 0)).toFixed(1)} Days</strong> ({selectedPayslipData.payslip.present_days} Present + {selectedPayslipData.payslip.paid_leave_days || 0} Paid Leave)
+                  </span>
+                </div>
               </div>
 
               {/* Two-Column Itemized Breakdown (Earnings vs Deductions) */}
@@ -340,7 +350,12 @@ export function PayslipPage({ preSelectedPayslipId }) {
                   <div className="divide-y divide-slate-100 p-2 min-h-[140px]">
                     {selectedPayslipData.lines.filter(l => ['BASIC', 'ALLOWANCE'].includes(l.category)).map((line, idx) => (
                       <div key={idx} className="flex justify-between py-1.5 px-2 text-slate-700 hover:bg-slate-50 rounded">
-                        <span>{line.rule_name}</span>
+                        <div>
+                          <p className="font-medium text-slate-900">{line.rule_name}</p>
+                          {line.days_worked && line.working_days && line.days_worked < line.working_days && (
+                            <p className="text-[10px] text-emerald-600">Earned for {line.days_worked} / {line.working_days} days</p>
+                          )}
+                        </div>
                         <span className="font-semibold text-slate-900 font-mono">₹{parseFloat(line.amount).toLocaleString()}</span>
                       </div>
                     ))}
